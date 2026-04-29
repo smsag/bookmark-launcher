@@ -28,32 +28,58 @@ __export(main_exports, {
   default: () => BookmarkLauncherPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // BookmarkStore.ts
 var import_obsidian = require("obsidian");
-var BOOKMARKS_FILE = "bookmarks.md";
+var DEFAULT_BOOKMARKS_FILE = "bookmarks.md";
 var BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 var ALLOWED_SCHEMES = ["https://", "http://", "obsidian://"];
 var BookmarkStoreManager = class {
-  constructor(app) {
+  constructor(app, filePath = DEFAULT_BOOKMARKS_FILE) {
     this.writing = false;
     this.app = app;
+    this.filePath = filePath;
   }
-  async getFile() {
-    const f = this.app.vault.getAbstractFileByPath(BOOKMARKS_FILE);
+  getFilePath() {
+    return this.filePath;
+  }
+  setFilePath(path) {
+    this.filePath = path;
+  }
+  getFile() {
+    const f = this.app.vault.getAbstractFileByPath(this.filePath);
     return f instanceof import_obsidian.TFile ? f : null;
   }
+  /** Creates any missing parent folders for this.filePath. */
+  async ensureParentFolders() {
+    const segments = this.filePath.split("/");
+    segments.pop();
+    if (segments.length === 0)
+      return;
+    let current = "";
+    for (const seg of segments) {
+      current = current ? `${current}/${seg}` : seg;
+      const node = this.app.vault.getAbstractFileByPath(current);
+      if (!node) {
+        try {
+          await this.app.vault.createFolder(current);
+        } catch (e) {
+        }
+      }
+    }
+  }
   async ensureFile() {
-    let f = await this.getFile();
+    let f = this.getFile();
     if (!f) {
-      await this.app.vault.create(BOOKMARKS_FILE, "");
-      f = await this.getFile();
+      await this.ensureParentFolders();
+      await this.app.vault.create(this.filePath, "");
+      f = this.getFile();
     }
     return f;
   }
   async parse() {
-    const f = await this.getFile();
+    const f = this.getFile();
     if (!f)
       return { folders: [], uncategorized: [] };
     const content = await this.app.vault.read(f);
@@ -424,14 +450,113 @@ var CaptureModal = class extends import_obsidian3.Modal {
   }
 };
 
+// SetupModal.ts
+var import_obsidian4 = require("obsidian");
+var SetupModal = class extends import_obsidian4.Modal {
+  constructor(app, onConfirm) {
+    super(app);
+    this.onConfirm = onConfirm;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("bookmark-setup-modal");
+    contentEl.createEl("h2", { text: "Set up Bookmark Launcher" });
+    contentEl.createEl("p", {
+      cls: "bookmark-setup-description",
+      text: "Choose where to store your bookmarks file. You can place it anywhere inside your vault \u2014 it stays a plain Markdown file you can edit directly."
+    });
+    let pathValue = "bookmarks.md";
+    const pathField = contentEl.createDiv("bookmark-capture-field");
+    pathField.createEl("label", { text: "File path (relative to vault root)" });
+    const pathInput = pathField.createEl("input", {
+      attr: {
+        type: "text",
+        placeholder: "bookmarks.md  or  Resources/bookmarks.md"
+      }
+    });
+    pathInput.value = pathValue;
+    pathInput.style.width = "100%";
+    const errorEl = pathField.createDiv({ cls: "bookmark-capture-error", text: "" });
+    const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian4.TFolder && f.path !== "/").sort((a, b) => a.path.localeCompare(b.path)).slice(0, 8);
+    if (folders.length > 0) {
+      const hintRow = pathField.createDiv("bookmark-setup-hint");
+      hintRow.createSpan({ cls: "bookmark-setup-hint-label", text: "Folders: " });
+      for (const folder of folders) {
+        const chip = hintRow.createEl("button", {
+          cls: "bookmark-setup-chip",
+          text: folder.path,
+          attr: { type: "button" }
+        });
+        chip.addEventListener("click", () => {
+          const filename = pathInput.value.trim().split("/").pop() || "bookmarks.md";
+          pathInput.value = `${folder.path}/${filename}`;
+          pathValue = pathInput.value;
+          errorEl.textContent = validate(pathValue);
+          confirmBtn.disabled = !!validate(pathValue);
+          pathInput.focus();
+        });
+      }
+    }
+    const validate = (val) => {
+      const v = val.trim();
+      if (!v)
+        return "Path is required.";
+      if (!v.endsWith(".md"))
+        return "File must end with .md";
+      if (v.startsWith("/"))
+        return "Use a relative path \u2014 no leading slash.";
+      if (v.includes(".."))
+        return "Path cannot contain ..";
+      return "";
+    };
+    pathInput.addEventListener("input", () => {
+      pathValue = pathInput.value;
+      errorEl.textContent = validate(pathValue);
+      confirmBtn.disabled = !!validate(pathValue);
+    });
+    const actions = contentEl.createDiv("bookmark-capture-actions");
+    const cancelBtn = actions.createEl("button", { text: "Later" });
+    cancelBtn.addEventListener("click", () => this.close());
+    const confirmBtn = actions.createEl("button", {
+      cls: "mod-cta",
+      text: "Create file"
+    });
+    confirmBtn.addEventListener("click", async () => {
+      const err = validate(pathValue.trim());
+      if (err) {
+        errorEl.textContent = err;
+        return;
+      }
+      confirmBtn.disabled = true;
+      confirmBtn.setText("Creating\u2026");
+      await this.onConfirm(pathValue.trim());
+      this.close();
+    });
+    pathInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !confirmBtn.disabled)
+        confirmBtn.click();
+    });
+    pathInput.focus();
+    pathInput.select();
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
 // main.ts
 var DEFAULT_DATA = {
-  collapseState: {}
+  collapseState: {},
+  bookmarksFilePath: null
 };
-var BookmarkLauncherPlugin = class extends import_obsidian4.Plugin {
+var BookmarkLauncherPlugin = class extends import_obsidian5.Plugin {
   async onload() {
+    var _a;
     this.data = Object.assign({}, DEFAULT_DATA, await this.loadData());
-    this.store = new BookmarkStoreManager(this.app);
+    this.store = new BookmarkStoreManager(
+      this.app,
+      (_a = this.data.bookmarksFilePath) != null ? _a : DEFAULT_BOOKMARKS_FILE
+    );
     this.registerView(VIEW_TYPE_BOOKMARK, (leaf) => new BookmarkView(leaf, this));
     this.addCommand({
       id: "add-bookmark",
@@ -443,26 +568,60 @@ var BookmarkLauncherPlugin = class extends import_obsidian4.Plugin {
       name: "Open panel",
       callback: () => this.revealPanel()
     });
+    this.addCommand({
+      id: "configure-file",
+      name: "Configure bookmarks file location",
+      callback: () => this.showSetupModal()
+    });
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian4.TFile && file.path === BOOKMARKS_FILE) {
+        if (file instanceof import_obsidian5.TFile && file.path === this.store.getFilePath()) {
           this.refreshViews();
         }
       })
     );
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian4.TFile && file.path === BOOKMARKS_FILE) {
+        if (file instanceof import_obsidian5.TFile && file.path === this.store.getFilePath()) {
           this.refreshViews();
         }
       })
     );
-    this.app.workspace.onLayoutReady(() => this.refreshViews());
+    this.app.workspace.onLayoutReady(() => this.initOnReady());
   }
   async onunload() {
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_BOOKMARK);
   }
-  // BookmarkViewHost implementation
+  // ── Startup ────────────────────────────────────────────────────────────
+  async initOnReady() {
+    if (this.data.bookmarksFilePath) {
+      await this.refreshViews();
+      return;
+    }
+    const legacyFile = this.app.vault.getAbstractFileByPath(DEFAULT_BOOKMARKS_FILE);
+    if (legacyFile instanceof import_obsidian5.TFile) {
+      await this.adoptPath(DEFAULT_BOOKMARKS_FILE);
+      await this.refreshViews();
+      return;
+    }
+    this.showSetupModal();
+  }
+  // ── Setup modal ────────────────────────────────────────────────────────
+  showSetupModal() {
+    new SetupModal(this.app, async (chosenPath) => {
+      await this.adoptPath(chosenPath);
+      await this.store.ensureFile();
+      await this.refreshViews();
+      await this.revealPanel();
+    }).open();
+  }
+  /** Persist a confirmed bookmarks file path and point the store at it. */
+  async adoptPath(path) {
+    this.data.bookmarksFilePath = path;
+    await this.saveData(this.data);
+    this.store.setFilePath(path);
+  }
+  // ── BookmarkViewHost ───────────────────────────────────────────────────
   openCaptureModal() {
     this.store.parse().then((storeData) => {
       const folderOptions = this.store.getFolderOptions(storeData);
@@ -476,7 +635,7 @@ var BookmarkLauncherPlugin = class extends import_obsidian4.Plugin {
     this.data.collapseState[key] = collapsed;
     await this.saveData(this.data);
   }
-  // Panel management
+  // ── Panel management ───────────────────────────────────────────────────
   async revealPanel() {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
     if (existing.length > 0) {

@@ -164,6 +164,50 @@
 	margin-bottom: 8px;
 }
 
+/* Setup Modal */
+
+.bookmark-setup-modal .modal-content {
+	padding: 16px 20px;
+	max-width: 420px;
+}
+
+.bookmark-setup-description {
+	color: var(--text-muted);
+	font-size: 0.9em;
+	line-height: 1.5;
+	margin-bottom: 16px;
+}
+
+.bookmark-setup-hint {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	margin-top: 8px;
+}
+
+.bookmark-setup-hint-label {
+	font-size: 0.78em;
+	color: var(--text-muted);
+}
+
+.bookmark-setup-chip {
+	font-size: 0.78em;
+	padding: 1px 7px;
+	border-radius: 10px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	cursor: pointer;
+	line-height: 1.6;
+}
+
+.bookmark-setup-chip:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
 /* Capture Modal */
 
 .bookmark-capture-modal .modal-content {

@@ -1,7 +1,7 @@
-import { App, TFile } from "obsidian";
+import { App, TFile, TFolder } from "obsidian";
 import { Bookmark, BookmarkFolder, BookmarkStore, FolderOption } from "./types";
 
-export const BOOKMARKS_FILE = "bookmarks.md";
+export const DEFAULT_BOOKMARKS_FILE = "bookmarks.md";
 
 const BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 
@@ -11,28 +11,59 @@ const ALLOWED_SCHEMES = ["https://", "http://", "obsidian://"];
 
 export class BookmarkStoreManager {
 	private app: App;
+	private filePath: string;
 	private writing = false;
 
-	constructor(app: App) {
+	constructor(app: App, filePath: string = DEFAULT_BOOKMARKS_FILE) {
 		this.app = app;
+		this.filePath = filePath;
 	}
 
-	private async getFile(): Promise<TFile | null> {
-		const f = this.app.vault.getAbstractFileByPath(BOOKMARKS_FILE);
+	getFilePath(): string {
+		return this.filePath;
+	}
+
+	setFilePath(path: string): void {
+		this.filePath = path;
+	}
+
+	private getFile(): TFile | null {
+		const f = this.app.vault.getAbstractFileByPath(this.filePath);
 		return f instanceof TFile ? f : null;
 	}
 
-	private async ensureFile(): Promise<TFile> {
-		let f = await this.getFile();
+	/** Creates any missing parent folders for this.filePath. */
+	private async ensureParentFolders(): Promise<void> {
+		const segments = this.filePath.split("/");
+		segments.pop(); // drop the filename
+		if (segments.length === 0) return;
+
+		let current = "";
+		for (const seg of segments) {
+			current = current ? `${current}/${seg}` : seg;
+			const node = this.app.vault.getAbstractFileByPath(current);
+			if (!node) {
+				try {
+					await this.app.vault.createFolder(current);
+				} catch {
+					// May have been created concurrently — ignore
+				}
+			}
+		}
+	}
+
+	async ensureFile(): Promise<TFile> {
+		let f = this.getFile();
 		if (!f) {
-			await this.app.vault.create(BOOKMARKS_FILE, "");
-			f = await this.getFile();
+			await this.ensureParentFolders();
+			await this.app.vault.create(this.filePath, "");
+			f = this.getFile();
 		}
 		return f!;
 	}
 
 	async parse(): Promise<BookmarkStore> {
-		const f = await this.getFile();
+		const f = this.getFile();
 		if (!f) return { folders: [], uncategorized: [] };
 		const content = await this.app.vault.read(f);
 		return this.parseContent(content);
