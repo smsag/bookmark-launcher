@@ -35,6 +35,7 @@ var import_obsidian = require("obsidian");
 var DEFAULT_BOOKMARKS_FILE = "bookmarks.md";
 var BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 var ALLOWED_SCHEMES = ["https://", "http://", "obsidian://"];
+var FOLDER_SEP = "";
 var BookmarkStoreManager = class {
   constructor(app, filePath = DEFAULT_BOOKMARKS_FILE) {
     this.writing = false;
@@ -75,6 +76,11 @@ var BookmarkStoreManager = class {
       await this.ensureParentFolders();
       await this.app.vault.create(this.filePath, "");
       f = this.getFile();
+      if (!f) {
+        throw new Error(
+          `Bookmark Launcher: failed to create "${this.filePath}". Check that the path is valid and the vault is writable.`
+        );
+      }
     }
     return f;
   }
@@ -96,6 +102,10 @@ var BookmarkStoreManager = class {
         if (currentFolder) {
           currentSubfolder = { name, bookmarks: [], subfolders: [] };
           currentFolder.subfolders.push(currentSubfolder);
+        } else {
+          currentSubfolder = null;
+          currentFolder = { name, bookmarks: [], subfolders: [] };
+          store.folders.push(currentFolder);
         }
       } else if (line.startsWith("# ")) {
         const name = line.slice(2).trim();
@@ -144,7 +154,7 @@ var BookmarkStoreManager = class {
         }
       }
     }
-    return parts.join("\n");
+    return parts.join("\n") + "\n";
   }
   getFolderOptions(store) {
     const opts = [];
@@ -153,7 +163,7 @@ var BookmarkStoreManager = class {
       for (const sub of folder.subfolders) {
         opts.push({
           label: `  ${sub.name}`,
-          value: sub.name,
+          value: `${folder.name}${FOLDER_SEP}${sub.name}`,
           isSubfolder: true
         });
       }
@@ -178,21 +188,30 @@ var BookmarkStoreManager = class {
         store.uncategorized.push(bookmark);
       } else {
         let added = false;
-        for (const folder of store.folders) {
-          if (folder.name === targetFolderName) {
-            folder.bookmarks.push(bookmark);
-            added = true;
-            break;
+        const sepIdx = targetFolderName.indexOf(FOLDER_SEP);
+        if (sepIdx !== -1) {
+          const parentName = targetFolderName.slice(0, sepIdx);
+          const subName = targetFolderName.slice(sepIdx + 1);
+          for (const folder of store.folders) {
+            if (folder.name === parentName) {
+              const sub = folder.subfolders.find(
+                (s) => s.name === subName
+              );
+              if (sub) {
+                sub.bookmarks.push(bookmark);
+                added = true;
+              }
+              break;
+            }
           }
-          for (const sub of folder.subfolders) {
-            if (sub.name === targetFolderName) {
-              sub.bookmarks.push(bookmark);
+        } else {
+          for (const folder of store.folders) {
+            if (folder.name === targetFolderName) {
+              folder.bookmarks.push(bookmark);
               added = true;
               break;
             }
           }
-          if (added)
-            break;
         }
         if (!added) {
           store.folders.push({
@@ -237,7 +256,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     this.render();
   }
   render() {
-    const container = this.containerEl.children[1];
+    const container = this.contentEl;
     container.empty();
     container.addClass("bookmark-launcher-container");
     const header = container.createDiv("bookmark-launcher-header");
@@ -267,7 +286,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
   }
   renderFolder(parent, folder, collapseState, parentName) {
     var _a;
-    const key = parentName ? `${parentName}/${folder.name}` : folder.name;
+    const key = parentName ? `${parentName}${FOLDER_SEP}${folder.name}` : folder.name;
     const isCollapsed = (_a = collapseState[key]) != null ? _a : false;
     const folderEl = parent.createDiv(
       parentName ? "bookmark-launcher-subfolder" : "bookmark-launcher-folder"
@@ -422,14 +441,21 @@ var CaptureModal = class extends import_obsidian3.Modal {
     });
     cancelBtn.addEventListener("click", () => this.close());
     saveBtn.addEventListener("click", async () => {
+      if (saveBtn.disabled)
+        return;
+      saveBtn.disabled = true;
       const name = nameValue.trim();
       const url = urlValue.trim();
       const isNew = folderValue === NEW_FOLDER_VALUE;
       const targetFolder = isNew ? newFolderValue.trim() : folderValue === UNCATEGORIZED_VALUE ? "" : folderValue;
-      if (!name || !URL_PREFIXES.some((p) => url.startsWith(p)))
+      if (!name || !URL_PREFIXES.some((p) => url.startsWith(p))) {
+        saveBtn.disabled = false;
         return;
-      if (isNew && !targetFolder)
+      }
+      if (isNew && !targetFolder) {
+        saveBtn.disabled = false;
         return;
+      }
       const bm = { name, url };
       await this.store.addBookmark(bm, targetFolder, isNew);
       this.close();
@@ -624,7 +650,6 @@ var BookmarkLauncherPlugin = class extends import_obsidian5.Plugin {
     new SetupModal(this.app, async (chosenPath) => {
       await this.adoptPath(chosenPath);
       await this.store.ensureFile();
-      await this.refreshViews();
       await this.revealPanel();
     }).open();
   }
@@ -652,16 +677,16 @@ var BookmarkLauncherPlugin = class extends import_obsidian5.Plugin {
   async revealPanel() {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
     if (existing.length > 0) {
-      const leaf2 = existing[0];
-      this.app.workspace.setActiveLeaf(leaf2, { focus: true });
-      this.app.workspace.revealLeaf(leaf2);
-      return;
+      const leaf = existing[0];
+      this.app.workspace.setActiveLeaf(leaf, { focus: true });
+      this.app.workspace.revealLeaf(leaf);
+    } else {
+      const leaf = this.app.workspace.getRightLeaf(false);
+      if (!leaf)
+        return;
+      await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
+      this.app.workspace.revealLeaf(leaf);
     }
-    const leaf = this.app.workspace.getRightLeaf(false);
-    if (!leaf)
-      return;
-    await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
-    this.app.workspace.revealLeaf(leaf);
     await this.refreshViews();
   }
   async refreshViews() {

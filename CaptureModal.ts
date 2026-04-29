@@ -138,6 +138,11 @@ export class CaptureModal extends Modal {
 		cancelBtn.addEventListener("click", () => this.close());
 
 		saveBtn.addEventListener("click", async () => {
+			// BUG-5 fix: disable immediately to prevent double-submit via rapid
+			// Enter presses or double-clicks before the async write completes.
+			if (saveBtn.disabled) return;
+			saveBtn.disabled = true;
+
 			const name = nameValue.trim();
 			const url = urlValue.trim();
 			const isNew = folderValue === NEW_FOLDER_VALUE;
@@ -147,8 +152,14 @@ export class CaptureModal extends Modal {
 				? ""
 				: folderValue;
 
-			if (!name || !URL_PREFIXES.some((p) => url.startsWith(p))) return;
-			if (isNew && !targetFolder) return;
+			if (!name || !URL_PREFIXES.some((p) => url.startsWith(p))) {
+				saveBtn.disabled = false;
+				return;
+			}
+			if (isNew && !targetFolder) {
+				saveBtn.disabled = false;
+				return;
+			}
 
 			const bm: Bookmark = { name, url };
 			await this.store.addBookmark(bm, targetFolder, isNew);

@@ -128,7 +128,9 @@ export default class BookmarkLauncherPlugin
 		new SetupModal(this.app, async (chosenPath: string) => {
 			await this.adoptPath(chosenPath);
 			await this.store.ensureFile();
-			await this.refreshViews();
+			// BUG-4 fix: revealPanel now always calls refreshViews, so we don't
+			// need an explicit call here — doing both caused two concurrent
+			// vault.read calls in undefined completion order.
 			await this.revealPanel();
 		}).open();
 	}
@@ -166,19 +168,19 @@ export default class BookmarkLauncherPlugin
 			const leaf = existing[0];
 			// setActiveLeaf switches the visible tab within the sidebar tab group.
 			// revealLeaf then expands the sidebar if it is currently collapsed.
-			// Calling only revealLeaf (the previous behaviour) expands the sidebar
-			// but does not switch away from whichever tab the user last opened,
-			// which is why the panel appeared unreachable after switching views.
 			this.app.workspace.setActiveLeaf(leaf, { focus: true });
 			this.app.workspace.revealLeaf(leaf);
-			return;
+		} else {
+			// No existing leaf — create one. getRightLeaf can return null on
+			// single-pane layouts (e.g. mobile), so guard before using it.
+			const leaf = this.app.workspace.getRightLeaf(false);
+			if (!leaf) return;
+			await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
+			this.app.workspace.revealLeaf(leaf);
 		}
-		// No existing leaf — create one. getRightLeaf can return null on
-		// single-pane layouts (e.g. mobile), so guard before using it.
-		const leaf = this.app.workspace.getRightLeaf(false);
-		if (!leaf) return;
-		await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
-		this.app.workspace.revealLeaf(leaf);
+		// BUG-4 fix: always refresh after revealing so callers (e.g. the setup
+		// modal callback) don't need a separate refreshViews() call — which
+		// previously caused two concurrent vault.read calls in undefined order.
 		await this.refreshViews();
 	}
 

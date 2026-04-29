@@ -9,6 +9,12 @@ const BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 // is silently dropped at parse time so it never reaches the view layer.
 const ALLOWED_SCHEMES = ["https://", "http://", "obsidian://"];
 
+// Separator used in composite folder option values (e.g. "Work\x1FDesign").
+// ASCII Unit Separator (U+001F) cannot appear in user-typed text, so it
+// unambiguously separates parent and child folder names even when those
+// names themselves contain slashes or other punctuation.
+export const FOLDER_SEP = "\x1F";
+
 export class BookmarkStoreManager {
 	private app: App;
 	private filePath: string;
@@ -58,8 +64,19 @@ export class BookmarkStoreManager {
 			await this.ensureParentFolders();
 			await this.app.vault.create(this.filePath, "");
 			f = this.getFile();
+			// BUG-2 fix: vault.create is async but getAbstractFileByPath reads
+			// from an in-memory index that Obsidian updates synchronously when
+			// create resolves. If it is somehow still null, fail loudly so the
+			// caller gets a clear error instead of a runtime crash deep in
+			// vault.read(null).
+			if (!f) {
+				throw new Error(
+					`Bookmark Launcher: failed to create "${this.filePath}". ` +
+					`Check that the path is valid and the vault is writable.`
+				);
+			}
 		}
-		return f!;
+		return f;
 	}
 
 	async parse(): Promise<BookmarkStore> {
@@ -81,6 +98,13 @@ export class BookmarkStoreManager {
 				if (currentFolder) {
 					currentSubfolder = { name, bookmarks: [], subfolders: [] };
 					currentFolder.subfolders.push(currentSubfolder);
+				} else {
+					// BUG-8 fix: orphaned ## with no preceding # — treat as a
+					// top-level folder so bookmarks beneath it are not silently
+					// dropped into uncategorized.
+					currentSubfolder = null;
+					currentFolder = { name, bookmarks: [], subfolders: [] };
+					store.folders.push(currentFolder);
 				}
 			} else if (line.startsWith("# ")) {
 				const name = line.slice(2).trim();
@@ -136,7 +160,9 @@ export class BookmarkStoreManager {
 			}
 		}
 
-		return parts.join("\n");
+		// BUG-10 fix: always end with a newline so external editors that add
+		// one don't produce a perpetually dirty file on every plugin write.
+		return parts.join("\n") + "\n";
 	}
 
 	getFolderOptions(store: BookmarkStore): FolderOption[] {
@@ -144,9 +170,12 @@ export class BookmarkStoreManager {
 		for (const folder of store.folders) {
 			opts.push({ label: folder.name, value: folder.name, isSubfolder: false });
 			for (const sub of folder.subfolders) {
+				// BUG-7 fix: use a composite "parent\x1Fchild" value so that
+				// addBookmark can locate the exact subfolder even when two
+				// different top-level folders share a subfolder of the same name.
 				opts.push({
 					label: `  ${sub.name}`,
-					value: sub.name,
+					value: `${folder.name}${FOLDER_SEP}${sub.name}`,
 					isSubfolder: true,
 				});
 			}
@@ -177,21 +206,35 @@ export class BookmarkStoreManager {
 				store.uncategorized.push(bookmark);
 			} else {
 				let added = false;
-				for (const folder of store.folders) {
-					if (folder.name === targetFolderName) {
-						folder.bookmarks.push(bookmark);
-						added = true;
-						break;
+
+				// BUG-7 fix: composite subfolder key ("parent\x1Fchild") lets
+				// us find the precise subfolder without ambiguity.
+				const sepIdx = targetFolderName.indexOf(FOLDER_SEP);
+				if (sepIdx !== -1) {
+					const parentName = targetFolderName.slice(0, sepIdx);
+					const subName = targetFolderName.slice(sepIdx + 1);
+					for (const folder of store.folders) {
+						if (folder.name === parentName) {
+							const sub = folder.subfolders.find(
+								(s) => s.name === subName
+							);
+							if (sub) {
+								sub.bookmarks.push(bookmark);
+								added = true;
+							}
+							break;
+						}
 					}
-					for (const sub of folder.subfolders) {
-						if (sub.name === targetFolderName) {
-							sub.bookmarks.push(bookmark);
+				} else {
+					for (const folder of store.folders) {
+						if (folder.name === targetFolderName) {
+							folder.bookmarks.push(bookmark);
 							added = true;
 							break;
 						}
 					}
-					if (added) break;
 				}
+
 				if (!added) {
 					store.folders.push({
 						name: targetFolderName,

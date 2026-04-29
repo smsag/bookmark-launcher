@@ -1,5 +1,6 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import { BookmarkFolder, BookmarkStore } from "./types";
+import { FOLDER_SEP } from "./BookmarkStore";
 
 export const VIEW_TYPE_BOOKMARK = "bookmark-launcher-view";
 
@@ -44,7 +45,9 @@ export class BookmarkView extends ItemView {
 	}
 
 	private render(): void {
-		const container = this.containerEl.children[1] as HTMLElement;
+		// BUG-9 fix: use the ItemView.contentEl getter (the stable Obsidian API
+		// for the content pane) instead of indexing into containerEl.children[].
+		const container = this.contentEl;
 		container.empty();
 		container.addClass("bookmark-launcher-container");
 
@@ -87,7 +90,11 @@ export class BookmarkView extends ItemView {
 		collapseState: Record<string, boolean>,
 		parentName: string | null
 	): void {
-		const key = parentName ? `${parentName}/${folder.name}` : folder.name;
+		// BUG-7 fix: use FOLDER_SEP (\x1F) instead of "/" so that folder names
+		// which themselves contain a slash don't produce colliding keys.
+		const key = parentName
+			? `${parentName}${FOLDER_SEP}${folder.name}`
+			: folder.name;
 		const isCollapsed = collapseState[key] ?? false;
 
 		const folderEl = parent.createDiv(
