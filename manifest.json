@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-bookmark-launcher",
 	"name": "Bookmark Launcher",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"minAppVersion": "1.4.0",
 	"description": "Quick access to internal and external bookmarks from a sidebar panel.",
 	"author": "Steffen",
