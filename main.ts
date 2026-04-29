@@ -34,6 +34,8 @@ export default class BookmarkLauncherPlugin
 
 		this.registerView(VIEW_TYPE_BOOKMARK, (leaf) => new BookmarkView(leaf, this));
 
+		this.addRibbonIcon("bookmark", "Bookmark Launcher", () => this.revealPanel());
+
 		this.addCommand({
 			id: "add-bookmark",
 			name: "Add bookmark",

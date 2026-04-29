@@ -558,6 +558,7 @@ var BookmarkLauncherPlugin = class extends import_obsidian5.Plugin {
       (_a = this.data.bookmarksFilePath) != null ? _a : DEFAULT_BOOKMARKS_FILE
     );
     this.registerView(VIEW_TYPE_BOOKMARK, (leaf) => new BookmarkView(leaf, this));
+    this.addRibbonIcon("bookmark", "Bookmark Launcher", () => this.revealPanel());
     this.addCommand({
       id: "add-bookmark",
       name: "Add bookmark",
