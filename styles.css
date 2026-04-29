@@ -1,0 +1,190 @@
+.bookmark-launcher-container {
+	padding: 8px;
+	height: 100%;
+	overflow-y: auto;
+	box-sizing: border-box;
+}
+
+.bookmark-launcher-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+	font-weight: 600;
+	font-size: 0.9em;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-muted);
+}
+
+.bookmark-launcher-add-btn {
+	cursor: pointer;
+	width: 22px;
+	height: 22px;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	border: none;
+	font-size: 18px;
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+}
+
+.bookmark-launcher-add-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.bookmark-launcher-empty {
+	color: var(--text-muted);
+	font-size: 0.85em;
+	padding: 8px 4px;
+	line-height: 1.5;
+}
+
+/* Folder (# heading) */
+
+.bookmark-launcher-folder {
+	margin-bottom: 2px;
+}
+
+.bookmark-launcher-folder-header {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+	padding: 3px 4px;
+	border-radius: 4px;
+	user-select: none;
+	font-weight: 600;
+	font-size: 0.85em;
+	color: var(--text-normal);
+}
+
+.bookmark-launcher-folder-header:hover {
+	background: var(--background-modifier-hover);
+}
+
+.bookmark-launcher-folder-content {
+	padding-left: 14px;
+	margin-bottom: 4px;
+}
+
+/* Subfolder (## heading) */
+
+.bookmark-launcher-subfolder {
+	margin-bottom: 1px;
+}
+
+.bookmark-launcher-subfolder-header {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 4px;
+	user-select: none;
+	font-size: 0.82em;
+	color: var(--text-muted);
+}
+
+.bookmark-launcher-subfolder-header:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.bookmark-launcher-subfolder-content {
+	padding-left: 14px;
+}
+
+/* Collapse arrow */
+
+.bookmark-launcher-folder-arrow {
+	font-size: 11px;
+	display: inline-block;
+	transition: transform 0.15s ease;
+	color: var(--text-muted);
+}
+
+.bookmark-launcher-folder-arrow.collapsed {
+	transform: rotate(-90deg);
+}
+
+/* Bookmark items */
+
+.bookmark-launcher-item {
+	display: block;
+	padding: 2px 4px;
+	border-radius: 4px;
+	cursor: pointer;
+	color: var(--text-normal);
+	text-decoration: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 0.88em;
+}
+
+.bookmark-launcher-item:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-accent);
+	text-decoration: none;
+}
+
+.bookmark-launcher-uncategorized {
+	margin-bottom: 8px;
+}
+
+/* Capture Modal */
+
+.bookmark-capture-modal .modal-content {
+	padding: 16px 20px;
+}
+
+.bookmark-capture-field {
+	margin-bottom: 14px;
+}
+
+.bookmark-capture-field label {
+	display: block;
+	margin-bottom: 5px;
+	font-weight: 500;
+	font-size: 0.88em;
+	color: var(--text-muted);
+}
+
+.bookmark-capture-field input,
+.bookmark-capture-field select {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 6px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 0.9em;
+}
+
+.bookmark-capture-field input:focus,
+.bookmark-capture-field select:focus {
+	border-color: var(--interactive-accent);
+	outline: none;
+	box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+}
+
+.bookmark-capture-error {
+	color: var(--text-error);
+	font-size: 0.78em;
+	margin-top: 4px;
+	min-height: 1em;
+}
+
+.bookmark-capture-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 18px;
+}

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+*.js.map
+
+# macOS
+.DS_Store
+
+# Local development overrides
+.env
+
+# Spec / planning documents (keep out of source control)
+SPEC.md
+spec.md
+*-spec.md
+*-plan.md
+PLAN.md
+
+# Editor
+.vscode/settings.json
+
+# Claude Code local memory
+.claude/
