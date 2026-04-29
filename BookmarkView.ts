@@ -110,21 +110,24 @@ export class BookmarkView extends ItemView {
 				? "bookmark-launcher-subfolder-content"
 				: "bookmark-launcher-folder-content"
 		);
-		contentEl.style.display = isCollapsed ? "none" : "";
+		if (isCollapsed) contentEl.addClass("is-collapsed");
+
+		// Grid-template-rows animation requires a single direct child wrapper.
+		const innerEl = contentEl.createDiv("bl-inner");
 
 		headerEl.addEventListener("click", async () => {
-			const nowCollapsed = contentEl.style.display !== "none";
-			contentEl.style.display = nowCollapsed ? "none" : "";
+			const nowCollapsed = !contentEl.hasClass("is-collapsed");
+			contentEl.toggleClass("is-collapsed", nowCollapsed);
 			arrow.classList.toggle("collapsed", nowCollapsed);
 			await this.host.setCollapseState(key, nowCollapsed);
 		});
 
 		for (const bm of folder.bookmarks) {
-			this.renderBookmarkItem(contentEl, bm.name, bm.url);
+			this.renderBookmarkItem(innerEl, bm.name, bm.url);
 		}
 
 		for (const sub of folder.subfolders) {
-			this.renderFolder(contentEl, sub, collapseState, folder.name);
+			this.renderFolder(innerEl, sub, collapseState, folder.name);
 		}
 	}
 

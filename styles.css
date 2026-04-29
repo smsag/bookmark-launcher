@@ -69,8 +69,7 @@
 }
 
 .bookmark-launcher-folder-content {
-	padding-left: 14px;
-	margin-bottom: 4px;
+	margin-bottom: 0;
 }
 
 /* Subfolder (## heading) */
@@ -97,7 +96,7 @@
 }
 
 .bookmark-launcher-subfolder-content {
-	padding-left: 14px;
+	margin-bottom: 0;
 }
 
 /* Collapse arrow */
@@ -105,12 +104,39 @@
 .bookmark-launcher-folder-arrow {
 	font-size: 11px;
 	display: inline-block;
-	transition: transform 0.15s ease;
+	transition: transform 0.2s ease;
 	color: var(--text-muted);
+	flex-shrink: 0;
 }
 
 .bookmark-launcher-folder-arrow.collapsed {
 	transform: rotate(-90deg);
+}
+
+/* Animated folder content */
+
+.bookmark-launcher-folder-content,
+.bookmark-launcher-subfolder-content {
+	display: grid;
+	grid-template-rows: 1fr;
+	transition: grid-template-rows 0.2s ease, opacity 0.2s ease;
+	opacity: 1;
+	overflow: hidden;
+}
+
+.bookmark-launcher-folder-content.is-collapsed,
+.bookmark-launcher-subfolder-content.is-collapsed {
+	grid-template-rows: 0fr;
+	opacity: 0;
+}
+
+/* Inner wrapper needed for grid-template-rows animation */
+.bookmark-launcher-folder-content > .bl-inner,
+.bookmark-launcher-subfolder-content > .bl-inner {
+	min-height: 0;
+	overflow: hidden;
+	padding-left: 14px;
+	padding-bottom: 4px;
 }
 
 /* Bookmark items */
