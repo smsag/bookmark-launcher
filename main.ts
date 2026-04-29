@@ -144,10 +144,20 @@ export default class BookmarkLauncherPlugin
 	async revealPanel(): Promise<void> {
 		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
 		if (existing.length > 0) {
-			this.app.workspace.revealLeaf(existing[0]);
+			const leaf = existing[0];
+			// setActiveLeaf switches the visible tab within the sidebar tab group.
+			// revealLeaf then expands the sidebar if it is currently collapsed.
+			// Calling only revealLeaf (the previous behaviour) expands the sidebar
+			// but does not switch away from whichever tab the user last opened,
+			// which is why the panel appeared unreachable after switching views.
+			this.app.workspace.setActiveLeaf(leaf, { focus: true });
+			this.app.workspace.revealLeaf(leaf);
 			return;
 		}
-		const leaf = this.app.workspace.getRightLeaf(false) as WorkspaceLeaf;
+		// No existing leaf — create one. getRightLeaf can return null on
+		// single-pane layouts (e.g. mobile), so guard before using it.
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) return;
 		await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
 		this.app.workspace.revealLeaf(leaf);
 		await this.refreshViews();

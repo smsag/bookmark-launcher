@@ -640,10 +640,14 @@ var BookmarkLauncherPlugin = class extends import_obsidian5.Plugin {
   async revealPanel() {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
     if (existing.length > 0) {
-      this.app.workspace.revealLeaf(existing[0]);
+      const leaf2 = existing[0];
+      this.app.workspace.setActiveLeaf(leaf2, { focus: true });
+      this.app.workspace.revealLeaf(leaf2);
       return;
     }
     const leaf = this.app.workspace.getRightLeaf(false);
+    if (!leaf)
+      return;
     await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
     this.app.workspace.revealLeaf(leaf);
     await this.refreshViews();
