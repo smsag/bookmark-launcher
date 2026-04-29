@@ -84,7 +84,15 @@ export default class BookmarkLauncherPlugin
 
 	private async initOnReady(): Promise<void> {
 		if (this.data.bookmarksFilePath) {
-			// Path already configured — go straight to rendering.
+			// Path already configured — ensure the panel is visible in the
+			// right sidebar and then populate it with the current store.
+			// refreshViews() alone is not enough: it bails early when no leaf
+			// exists, and onunload() removes the leaf before Obsidian writes
+			// workspace.json, so there is nothing for Obsidian to restore on
+			// the next launch. ensurePanelOpen() guarantees the leaf is always
+			// present after startup, matching the behaviour of core panels like
+			// Backlinks and Outgoing Links.
+			await this.ensurePanelOpen();
 			await this.refreshViews();
 			return;
 		}
@@ -95,12 +103,23 @@ export default class BookmarkLauncherPlugin
 		const legacyFile = this.app.vault.getAbstractFileByPath(DEFAULT_BOOKMARKS_FILE);
 		if (legacyFile instanceof TFile) {
 			await this.adoptPath(DEFAULT_BOOKMARKS_FILE);
+			await this.ensurePanelOpen();
 			await this.refreshViews();
 			return;
 		}
 
 		// Genuinely first launch — ask the user where they want the file.
 		this.showSetupModal();
+	}
+
+	/** Adds the panel to the right sidebar if it is not already there. */
+	private async ensurePanelOpen(): Promise<void> {
+		if (this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK).length > 0) {
+			return; // Already present — Obsidian restored it from workspace state.
+		}
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) return;
+		await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
 	}
 
 	// ── Setup modal ────────────────────────────────────────────────────────

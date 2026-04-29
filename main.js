@@ -596,16 +596,28 @@ var BookmarkLauncherPlugin = class extends import_obsidian5.Plugin {
   // ── Startup ────────────────────────────────────────────────────────────
   async initOnReady() {
     if (this.data.bookmarksFilePath) {
+      await this.ensurePanelOpen();
       await this.refreshViews();
       return;
     }
     const legacyFile = this.app.vault.getAbstractFileByPath(DEFAULT_BOOKMARKS_FILE);
     if (legacyFile instanceof import_obsidian5.TFile) {
       await this.adoptPath(DEFAULT_BOOKMARKS_FILE);
+      await this.ensurePanelOpen();
       await this.refreshViews();
       return;
     }
     this.showSetupModal();
+  }
+  /** Adds the panel to the right sidebar if it is not already there. */
+  async ensurePanelOpen() {
+    if (this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK).length > 0) {
+      return;
+    }
+    const leaf = this.app.workspace.getRightLeaf(false);
+    if (!leaf)
+      return;
+    await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
   }
   // ── Setup modal ────────────────────────────────────────────────────────
   showSetupModal() {
