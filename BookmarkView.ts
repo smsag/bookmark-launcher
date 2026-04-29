@@ -140,11 +140,17 @@ export class BookmarkView extends ItemView {
 		});
 		item.addEventListener("click", (e) => {
 			e.preventDefault();
+			// Allowlist URL schemes — reject anything not explicitly safe.
+			// bookmarks.md is user-editable plain text, so a url value arriving
+			// here may differ from what was entered via the modal (which validates
+			// on input). Without this guard, a `javascript:` URI in the file
+			// would execute in Obsidian's Electron renderer with Node.js access.
 			if (url.startsWith("obsidian://")) {
 				window.open(url);
-			} else {
+			} else if (url.startsWith("https://") || url.startsWith("http://")) {
 				window.open(url, "_blank", "noopener,noreferrer");
 			}
+			// Any other scheme (javascript:, file:, data:, …) is silently ignored.
 		});
 	}
 }

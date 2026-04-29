@@ -34,6 +34,7 @@ var import_obsidian4 = require("obsidian");
 var import_obsidian = require("obsidian");
 var BOOKMARKS_FILE = "bookmarks.md";
 var BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
+var ALLOWED_SCHEMES = ["https://", "http://", "obsidian://"];
 var BookmarkStoreManager = class {
   constructor(app) {
     this.writing = false;
@@ -78,7 +79,11 @@ var BookmarkStoreManager = class {
       } else {
         const m = line.match(BOOKMARK_RE);
         if (m) {
-          const bm = { name: m[1], url: m[2] };
+          const parsedUrl = m[2];
+          if (!ALLOWED_SCHEMES.some((s) => parsedUrl.startsWith(s))) {
+            continue;
+          }
+          const bm = { name: m[1], url: parsedUrl };
           if (currentSubfolder) {
             currentSubfolder.bookmarks.push(bm);
           } else if (currentFolder) {
@@ -275,7 +280,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       e.preventDefault();
       if (url.startsWith("obsidian://")) {
         window.open(url);
-      } else {
+      } else if (url.startsWith("https://") || url.startsWith("http://")) {
         window.open(url, "_blank", "noopener,noreferrer");
       }
     });

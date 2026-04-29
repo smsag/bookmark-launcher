@@ -5,6 +5,10 @@ export const BOOKMARKS_FILE = "bookmarks.md";
 
 const BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 
+// Schemes that are safe to open. Anything else (javascript:, data:, file:, …)
+// is silently dropped at parse time so it never reaches the view layer.
+const ALLOWED_SCHEMES = ["https://", "http://", "obsidian://"];
+
 export class BookmarkStoreManager {
 	private app: App;
 	private writing = false;
@@ -55,7 +59,15 @@ export class BookmarkStoreManager {
 			} else {
 				const m = line.match(BOOKMARK_RE);
 				if (m) {
-					const bm: Bookmark = { name: m[1], url: m[2] };
+					const parsedUrl = m[2];
+					// Drop bookmarks whose URL scheme is not explicitly allowed.
+					// This is a defence-in-depth guard: the modal validates on
+					// input, but bookmarks.md is a plain file anyone (or any
+					// plugin) can write directly.
+					if (!ALLOWED_SCHEMES.some((s) => parsedUrl.startsWith(s))) {
+						continue;
+					}
+					const bm: Bookmark = { name: m[1], url: parsedUrl };
 					if (currentSubfolder) {
 						currentSubfolder.bookmarks.push(bm);
 					} else if (currentFolder) {
