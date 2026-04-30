@@ -15,7 +15,7 @@ const DEFAULT_DATA: PluginData = {
 	bookmarksFilePath: null,
 };
 
-export default class BookmarkLauncherPlugin
+export default class LaunchpadPlugin
 	extends Plugin
 	implements BookmarkViewHost
 {
@@ -34,7 +34,7 @@ export default class BookmarkLauncherPlugin
 
 		this.registerView(VIEW_TYPE_BOOKMARK, (leaf) => new BookmarkView(leaf, this));
 
-		this.addRibbonIcon("bookmark", "Bookmark Launcher", () => this.revealPanel());
+		this.addRibbonIcon("bookmark", "Launchpad", () => this.revealPanel());
 
 		this.addCommand({
 			id: "add-bookmark",

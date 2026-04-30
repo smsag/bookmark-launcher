@@ -2,7 +2,7 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import { BookmarkFolder, BookmarkStore } from "./types";
 import { FOLDER_SEP } from "./BookmarkStore";
 
-export const VIEW_TYPE_BOOKMARK = "bookmark-launcher-view";
+export const VIEW_TYPE_BOOKMARK = "launchpad-view";
 
 export interface BookmarkViewHost {
 	openCaptureModal(): void;
@@ -24,7 +24,7 @@ export class BookmarkView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Bookmark Launcher";
+		return "Launchpad";
 	}
 
 	getIcon(): string {
@@ -49,12 +49,12 @@ export class BookmarkView extends ItemView {
 		// for the content pane) instead of indexing into containerEl.children[].
 		const container = this.contentEl;
 		container.empty();
-		container.addClass("bookmark-launcher-container");
+		container.addClass("launchpad-container");
 
-		const header = container.createDiv("bookmark-launcher-header");
+		const header = container.createDiv("launchpad-header");
 		header.createSpan({ text: "Bookmarks" });
 		const addBtn = header.createEl("button", {
-			cls: "bookmark-launcher-add-btn",
+			cls: "launchpad-add-btn",
 			text: "+",
 			attr: { "aria-label": "Add bookmark" },
 		});
@@ -63,7 +63,7 @@ export class BookmarkView extends ItemView {
 		const collapseState = this.host.getCollapseState();
 
 		if (this.store.uncategorized.length > 0) {
-			const section = container.createDiv("bookmark-launcher-uncategorized");
+			const section = container.createDiv("launchpad-uncategorized");
 			for (const bm of this.store.uncategorized) {
 				this.renderBookmarkItem(section, bm.name, bm.url);
 			}
@@ -78,7 +78,7 @@ export class BookmarkView extends ItemView {
 			this.store.uncategorized.length === 0
 		) {
 			container.createDiv({
-				cls: "bookmark-launcher-empty",
+				cls: "launchpad-empty",
 				text: 'No bookmarks yet. Press + to add one, or edit bookmarks.md directly.',
 			});
 		}
@@ -98,29 +98,29 @@ export class BookmarkView extends ItemView {
 		const isCollapsed = collapseState[key] ?? false;
 
 		const folderEl = parent.createDiv(
-			parentName ? "bookmark-launcher-subfolder" : "bookmark-launcher-folder"
+			parentName ? "launchpad-subfolder" : "launchpad-folder"
 		);
 
 		const headerCls = parentName
-			? "bookmark-launcher-subfolder-header"
-			: "bookmark-launcher-folder-header";
+			? "launchpad-subfolder-header"
+			: "launchpad-folder-header";
 
 		const headerEl = folderEl.createDiv(headerCls);
 		const arrow = headerEl.createSpan({
-			cls: "bookmark-launcher-folder-arrow" + (isCollapsed ? " collapsed" : ""),
+			cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),
 			text: "▾",
 		});
 		headerEl.createSpan({ text: folder.name });
 
 		const contentEl = folderEl.createDiv(
 			parentName
-				? "bookmark-launcher-subfolder-content"
-				: "bookmark-launcher-folder-content"
+				? "launchpad-subfolder-content"
+				: "launchpad-folder-content"
 		);
 		if (isCollapsed) contentEl.addClass("is-collapsed");
 
 		// Grid-template-rows animation requires a single direct child wrapper.
-		const innerEl = contentEl.createDiv("bl-inner");
+		const innerEl = contentEl.createDiv("lp-inner");
 
 		headerEl.addEventListener("click", async () => {
 			const nowCollapsed = !contentEl.hasClass("is-collapsed");
@@ -144,7 +144,7 @@ export class BookmarkView extends ItemView {
 		url: string
 	): void {
 		const item = parent.createEl("a", {
-			cls: "bookmark-launcher-item",
+			cls: "launchpad-item",
 			text: name,
 			attr: { href: "#", title: url },
 		});

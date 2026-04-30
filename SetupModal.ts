@@ -16,18 +16,18 @@ export class SetupModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.addClass("bookmark-setup-modal");
+		contentEl.addClass("launchpad-setup-modal");
 
-		contentEl.createEl("h2", { text: "Set up Bookmark Launcher" });
+		contentEl.createEl("h2", { text: "Set up Launchpad" });
 		contentEl.createEl("p", {
-			cls: "bookmark-setup-description",
+			cls: "launchpad-setup-description",
 			text: "Choose where to store your bookmarks file. You can place it anywhere inside your vault — it stays a plain Markdown file you can edit directly.",
 		});
 
 		// ── Path input ────────────────────────────────────────────────────
 		let pathValue = "bookmarks.md";
 
-		const pathField = contentEl.createDiv("bookmark-capture-field");
+		const pathField = contentEl.createDiv("launchpad-capture-field");
 		pathField.createEl("label", { text: "File path (relative to vault root)" });
 
 		const pathInput = pathField.createEl("input", {
@@ -39,7 +39,7 @@ export class SetupModal extends Modal {
 		pathInput.value = pathValue;
 		pathInput.style.width = "100%";
 
-		const errorEl = pathField.createDiv({ cls: "bookmark-capture-error", text: "" });
+		const errorEl = pathField.createDiv({ cls: "launchpad-capture-error", text: "" });
 
 		// ── Folder chips ──────────────────────────────────────────────────
 		const folders = this.app.vault
@@ -49,11 +49,11 @@ export class SetupModal extends Modal {
 			.slice(0, 8); // show at most 8 to keep the modal compact
 
 		if (folders.length > 0) {
-			const hintRow = pathField.createDiv("bookmark-setup-hint");
-			hintRow.createSpan({ cls: "bookmark-setup-hint-label", text: "Folders: " });
+			const hintRow = pathField.createDiv("launchpad-setup-hint");
+			hintRow.createSpan({ cls: "launchpad-setup-hint-label", text: "Folders: " });
 			for (const folder of folders) {
 				const chip = hintRow.createEl("button", {
-					cls: "bookmark-setup-chip",
+					cls: "launchpad-setup-chip",
 					text: folder.path,
 					attr: { type: "button" },
 				});
@@ -87,7 +87,7 @@ export class SetupModal extends Modal {
 		});
 
 		// ── Actions ───────────────────────────────────────────────────────
-		const actions = contentEl.createDiv("bookmark-capture-actions");
+		const actions = contentEl.createDiv("launchpad-capture-actions");
 
 		const cancelBtn = actions.createEl("button", { text: "Later" });
 		cancelBtn.addEventListener("click", () => this.close());

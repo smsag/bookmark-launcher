@@ -1,4 +1,4 @@
-# Bookmark Launcher
+# Launchpad
 
 An Obsidian plugin for instant access to any link — internal (`obsidian://`) or external (`https://`) — without breaking your flow.
 
@@ -14,18 +14,18 @@ An Obsidian plugin for instant access to any link — internal (`obsidian://`) o
 1. Install the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat) from the Obsidian community plugins
 2. Open BRAT settings → **Add Beta Plugin**
 3. Paste this repository URL and click **Add Plugin**
-4. Enable **Bookmark Launcher** in Settings → Community Plugins
+4. Enable **Launchpad** in Settings → Community Plugins
 
 ## Usage
 
 ### Open the sidebar panel
 
-Command palette → **Bookmark Launcher: Open panel**
+Command palette → **Launchpad: Open panel**
 
 ### Add a bookmark
 
 - Click **+** in the sidebar panel header, or
-- Command palette / slash command → **Bookmark Launcher: Add bookmark**
+- Command palette / slash command → **Launchpad: Add bookmark**
 
 Fill in the display name, URL (`https://` or `obsidian://`), and choose a folder. Selecting **+ New folder…** creates a new top-level folder on save.
 
@@ -65,7 +65,7 @@ npm run build  # production bundle → main.js
 
 Requires Node.js ≥ 16. The plugin targets Obsidian ≥ 1.4.0.
 
-For local testing, symlink or copy the repo directory into `.obsidian/plugins/obsidian-bookmark-launcher/` inside your vault, then enable the plugin.
+For local testing, symlink or copy the repo directory into `.obsidian/plugins/obsidian-launchpad/` inside your vault, then enable the plugin.
 
 ## Out of scope (MVP)
 

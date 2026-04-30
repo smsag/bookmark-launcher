@@ -1,4 +1,4 @@
-# Agent Context — Bookmark Launcher
+# Agent Context — Launchpad
 
 This file gives AI coding agents the context needed to work on this codebase without re-deriving it from scratch.
 
@@ -23,7 +23,7 @@ After a build, `main.js` must be committed. BRAT installs directly from the repo
 ```
 main.ts              Plugin entry — wires everything together
 BookmarkStore.ts     Parse + write bookmarks.md (BookmarkStoreManager)
-BookmarkView.ts      Sidebar panel (ItemView, type: bookmark-launcher-view)
+BookmarkView.ts      Sidebar panel (ItemView, type: launchpad-view)
 CaptureModal.ts      Add-bookmark modal (Modal)
 types.ts             Interfaces: Bookmark, BookmarkFolder, BookmarkStore, FolderOption
 styles.css           All styles; uses Obsidian CSS variables throughout

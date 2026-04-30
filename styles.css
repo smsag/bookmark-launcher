@@ -1,11 +1,11 @@
-.bookmark-launcher-container {
+.launchpad-container {
 	padding: 8px;
 	height: 100%;
 	overflow-y: auto;
 	box-sizing: border-box;
 }
 
-.bookmark-launcher-header {
+.launchpad-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -17,7 +17,7 @@
 	color: var(--text-muted);
 }
 
-.bookmark-launcher-add-btn {
+.launchpad-add-btn {
 	cursor: pointer;
 	width: 22px;
 	height: 22px;
@@ -33,12 +33,12 @@
 	padding: 0;
 }
 
-.bookmark-launcher-add-btn:hover {
+.launchpad-add-btn:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
 }
 
-.bookmark-launcher-empty {
+.launchpad-empty {
 	color: var(--text-muted);
 	font-size: 0.85em;
 	padding: 8px 4px;
@@ -47,11 +47,11 @@
 
 /* Folder (# heading) */
 
-.bookmark-launcher-folder {
+.launchpad-folder {
 	margin-bottom: 2px;
 }
 
-.bookmark-launcher-folder-header {
+.launchpad-folder-header {
 	display: flex;
 	align-items: center;
 	gap: 4px;
@@ -64,21 +64,21 @@
 	color: var(--text-normal);
 }
 
-.bookmark-launcher-folder-header:hover {
+.launchpad-folder-header:hover {
 	background: var(--background-modifier-hover);
 }
 
-.bookmark-launcher-folder-content {
+.launchpad-folder-content {
 	margin-bottom: 0;
 }
 
 /* Subfolder (## heading) */
 
-.bookmark-launcher-subfolder {
+.launchpad-subfolder {
 	margin-bottom: 1px;
 }
 
-.bookmark-launcher-subfolder-header {
+.launchpad-subfolder-header {
 	display: flex;
 	align-items: center;
 	gap: 4px;
@@ -90,18 +90,18 @@
 	color: var(--text-muted);
 }
 
-.bookmark-launcher-subfolder-header:hover {
+.launchpad-subfolder-header:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
 }
 
-.bookmark-launcher-subfolder-content {
+.launchpad-subfolder-content {
 	margin-bottom: 0;
 }
 
 /* Collapse arrow */
 
-.bookmark-launcher-folder-arrow {
+.launchpad-folder-arrow {
 	font-size: 11px;
 	display: inline-block;
 	transition: transform 0.2s ease;
@@ -109,14 +109,14 @@
 	flex-shrink: 0;
 }
 
-.bookmark-launcher-folder-arrow.collapsed {
+.launchpad-folder-arrow.collapsed {
 	transform: rotate(-90deg);
 }
 
 /* Animated folder content */
 
-.bookmark-launcher-folder-content,
-.bookmark-launcher-subfolder-content {
+.launchpad-folder-content,
+.launchpad-subfolder-content {
 	display: grid;
 	grid-template-rows: 1fr;
 	transition: grid-template-rows 0.2s ease, opacity 0.2s ease;
@@ -124,15 +124,15 @@
 	overflow: hidden;
 }
 
-.bookmark-launcher-folder-content.is-collapsed,
-.bookmark-launcher-subfolder-content.is-collapsed {
+.launchpad-folder-content.is-collapsed,
+.launchpad-subfolder-content.is-collapsed {
 	grid-template-rows: 0fr;
 	opacity: 0;
 }
 
 /* Inner wrapper needed for grid-template-rows animation */
-.bookmark-launcher-folder-content > .bl-inner,
-.bookmark-launcher-subfolder-content > .bl-inner {
+.launchpad-folder-content > .lp-inner,
+.launchpad-subfolder-content > .lp-inner {
 	min-height: 0;
 	overflow: hidden;
 	padding-left: 14px;
@@ -141,7 +141,7 @@
 
 /* Bookmark items */
 
-.bookmark-launcher-item {
+.launchpad-item {
 	display: block;
 	padding: 2px 4px;
 	border-radius: 4px;
@@ -154,31 +154,31 @@
 	font-size: 0.88em;
 }
 
-.bookmark-launcher-item:hover {
+.launchpad-item:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-accent);
 	text-decoration: none;
 }
 
-.bookmark-launcher-uncategorized {
+.launchpad-uncategorized {
 	margin-bottom: 8px;
 }
 
 /* Setup Modal */
 
-.bookmark-setup-modal .modal-content {
+.launchpad-setup-modal .modal-content {
 	padding: 16px 20px;
 	max-width: 420px;
 }
 
-.bookmark-setup-description {
+.launchpad-setup-description {
 	color: var(--text-muted);
 	font-size: 0.9em;
 	line-height: 1.5;
 	margin-bottom: 16px;
 }
 
-.bookmark-setup-hint {
+.launchpad-setup-hint {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -186,12 +186,12 @@
 	margin-top: 8px;
 }
 
-.bookmark-setup-hint-label {
+.launchpad-setup-hint-label {
 	font-size: 0.78em;
 	color: var(--text-muted);
 }
 
-.bookmark-setup-chip {
+.launchpad-setup-chip {
 	font-size: 0.78em;
 	padding: 1px 7px;
 	border-radius: 10px;
@@ -202,7 +202,7 @@
 	line-height: 1.6;
 }
 
-.bookmark-setup-chip:hover {
+.launchpad-setup-chip:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
 	border-color: var(--interactive-accent);
@@ -210,15 +210,15 @@
 
 /* Capture Modal */
 
-.bookmark-capture-modal .modal-content {
+.launchpad-capture-modal .modal-content {
 	padding: 16px 20px;
 }
 
-.bookmark-capture-field {
+.launchpad-capture-field {
 	margin-bottom: 14px;
 }
 
-.bookmark-capture-field label {
+.launchpad-capture-field label {
 	display: block;
 	margin-bottom: 5px;
 	font-weight: 500;
@@ -226,8 +226,8 @@
 	color: var(--text-muted);
 }
 
-.bookmark-capture-field input,
-.bookmark-capture-field select {
+.launchpad-capture-field input,
+.launchpad-capture-field select {
 	width: 100%;
 	box-sizing: border-box;
 	padding: 6px 8px;
@@ -238,21 +238,21 @@
 	font-size: 0.9em;
 }
 
-.bookmark-capture-field input:focus,
-.bookmark-capture-field select:focus {
+.launchpad-capture-field input:focus,
+.launchpad-capture-field select:focus {
 	border-color: var(--interactive-accent);
 	outline: none;
 	box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
 }
 
-.bookmark-capture-error {
+.launchpad-capture-error {
 	color: var(--text-error);
 	font-size: 0.78em;
 	margin-top: 4px;
 	min-height: 1em;
 }
 
-.bookmark-capture-actions {
+.launchpad-capture-actions {
 	display: flex;
 	justify-content: flex-end;
 	gap: 8px;

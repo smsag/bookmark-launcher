@@ -18,7 +18,7 @@ export class CaptureModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		contentEl.addClass("bookmark-capture-modal");
+		contentEl.addClass("launchpad-capture-modal");
 		contentEl.createEl("h2", { text: "Add Bookmark" });
 
 		let nameValue = "";
@@ -30,19 +30,19 @@ export class CaptureModal extends Modal {
 		let nameError = "";
 
 		// --- Display Name ---
-		const nameField = contentEl.createDiv("bookmark-capture-field");
+		const nameField = contentEl.createDiv("launchpad-capture-field");
 		nameField.createEl("label", { text: "Display Name" });
 		const nameInput = nameField.createEl("input", {
 			attr: { type: "text", placeholder: "e.g. Linear Board" },
 		});
 		const nameErrorEl = nameField.createDiv({
-			cls: "bookmark-capture-error",
+			cls: "launchpad-capture-error",
 			text: "",
 		});
 		nameInput.style.width = "100%";
 
 		// --- URL ---
-		const urlField = contentEl.createDiv("bookmark-capture-field");
+		const urlField = contentEl.createDiv("launchpad-capture-field");
 		urlField.createEl("label", { text: "URL" });
 		const urlInput = urlField.createEl("input", {
 			attr: {
@@ -51,13 +51,13 @@ export class CaptureModal extends Modal {
 			},
 		});
 		const urlErrorEl = urlField.createDiv({
-			cls: "bookmark-capture-error",
+			cls: "launchpad-capture-error",
 			text: "",
 		});
 		urlInput.style.width = "100%";
 
 		// --- Target Folder ---
-		const folderField = contentEl.createDiv("bookmark-capture-field");
+		const folderField = contentEl.createDiv("launchpad-capture-field");
 		folderField.createEl("label", { text: "Target Folder" });
 		const folderSelect = folderField.createEl("select");
 		folderSelect.style.width = "100%";
@@ -82,7 +82,7 @@ export class CaptureModal extends Modal {
 		});
 
 		// --- New Folder Name (hidden until selected) ---
-		const newFolderField = contentEl.createDiv("bookmark-capture-field");
+		const newFolderField = contentEl.createDiv("launchpad-capture-field");
 		newFolderField.style.display = "none";
 		newFolderField.createEl("label", { text: "New Folder Name" });
 		const newFolderInput = newFolderField.createEl("input", {
@@ -103,7 +103,7 @@ export class CaptureModal extends Modal {
 		});
 
 		// --- Actions ---
-		const actions = contentEl.createDiv("bookmark-capture-actions");
+		const actions = contentEl.createDiv("launchpad-capture-actions");
 		const cancelBtn = actions.createEl("button", { text: "Cancel" });
 		const saveBtn = actions.createEl("button", {
 			cls: "mod-cta",
