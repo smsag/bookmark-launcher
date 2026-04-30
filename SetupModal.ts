@@ -28,18 +28,27 @@ export class SetupModal extends Modal {
 		let pathValue = "bookmarks.md";
 
 		const pathField = contentEl.createDiv("launchpad-capture-field");
-		pathField.createEl("label", { text: "File path (relative to vault root)" });
+		const pathLbl = pathField.createEl("label", { text: "File path (relative to vault root)" });
+		pathLbl.setAttribute("for", "lp-sm-path");
 
 		const pathInput = pathField.createEl("input", {
 			attr: {
+				id: "lp-sm-path",
 				type: "text",
 				placeholder: "bookmarks.md  or  Resources/bookmarks.md",
+				"aria-describedby": "lp-sm-path-err",
 			},
 		});
 		pathInput.value = pathValue;
 		pathInput.style.width = "100%";
 
-		const errorEl = pathField.createDiv({ cls: "launchpad-capture-error", text: "" });
+		// aria-live="polite" so screen readers announce validation messages
+		// without interrupting the current reading flow.
+		const errorEl = pathField.createDiv({
+			cls: "launchpad-capture-error",
+			text: "",
+			attr: { id: "lp-sm-path-err", "aria-live": "polite" },
+		});
 
 		// ── Folder chips ──────────────────────────────────────────────────
 		const folders = this.app.vault

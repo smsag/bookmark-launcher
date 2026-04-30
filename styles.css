@@ -19,8 +19,8 @@
 
 .launchpad-add-btn {
 	cursor: pointer;
-	width: 22px;
-	height: 22px;
+	width: 28px;
+	height: 28px;
 	border-radius: 4px;
 	background: transparent;
 	color: var(--text-muted);
@@ -36,6 +36,11 @@
 .launchpad-add-btn:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
+}
+
+.launchpad-add-btn:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
 }
 
 .launchpad-empty {
@@ -62,10 +67,21 @@
 	font-weight: 600;
 	font-size: 0.85em;
 	color: var(--text-normal);
+	/* Button reset — element is now a <button> for keyboard accessibility */
+	width: 100%;
+	text-align: left;
+	background: transparent;
+	border: none;
+	font-family: inherit;
 }
 
 .launchpad-folder-header:hover {
 	background: var(--background-modifier-hover);
+}
+
+.launchpad-folder-header:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
 }
 
 .launchpad-folder-content {
@@ -88,11 +104,22 @@
 	user-select: none;
 	font-size: 0.82em;
 	color: var(--text-muted);
+	/* Button reset — element is now a <button> for keyboard accessibility */
+	width: 100%;
+	text-align: left;
+	background: transparent;
+	border: none;
+	font-family: inherit;
 }
 
 .launchpad-subfolder-header:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
+}
+
+.launchpad-subfolder-header:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
 }
 
 .launchpad-subfolder-content {
@@ -158,6 +185,11 @@
 	background: var(--background-modifier-hover);
 	color: var(--text-accent);
 	text-decoration: none;
+}
+
+.launchpad-item:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
 }
 
 .launchpad-uncategorized {

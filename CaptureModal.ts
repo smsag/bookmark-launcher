@@ -26,40 +26,54 @@ export class CaptureModal extends Modal {
 		let folderValue =
 			this.folderOptions.length > 0 ? this.folderOptions[0].value : UNCATEGORIZED_VALUE;
 		let newFolderValue = "";
-		let urlError = "";
-		let nameError = "";
 
 		// --- Display Name ---
 		const nameField = contentEl.createDiv("launchpad-capture-field");
-		nameField.createEl("label", { text: "Display Name" });
+		const nameLbl = nameField.createEl("label", { text: "Display Name" });
+		nameLbl.setAttribute("for", "lp-cm-name");
 		const nameInput = nameField.createEl("input", {
-			attr: { type: "text", placeholder: "e.g. Linear Board" },
+			attr: {
+				id: "lp-cm-name",
+				type: "text",
+				placeholder: "e.g. Linear Board",
+				"aria-describedby": "lp-cm-name-err",
+			},
 		});
+		// aria-live="polite" ensures screen readers announce validation messages
+		// as they appear without interrupting the current reading position.
 		const nameErrorEl = nameField.createDiv({
 			cls: "launchpad-capture-error",
 			text: "",
+			attr: { id: "lp-cm-name-err", "aria-live": "polite" },
 		});
 		nameInput.style.width = "100%";
 
 		// --- URL ---
 		const urlField = contentEl.createDiv("launchpad-capture-field");
-		urlField.createEl("label", { text: "URL" });
+		const urlLbl = urlField.createEl("label", { text: "URL" });
+		urlLbl.setAttribute("for", "lp-cm-url");
 		const urlInput = urlField.createEl("input", {
 			attr: {
+				id: "lp-cm-url",
 				type: "text",
 				placeholder: "https:// or obsidian://",
+				"aria-describedby": "lp-cm-url-err",
 			},
 		});
 		const urlErrorEl = urlField.createDiv({
 			cls: "launchpad-capture-error",
 			text: "",
+			attr: { id: "lp-cm-url-err", "aria-live": "polite" },
 		});
 		urlInput.style.width = "100%";
 
 		// --- Target Folder ---
 		const folderField = contentEl.createDiv("launchpad-capture-field");
-		folderField.createEl("label", { text: "Target Folder" });
-		const folderSelect = folderField.createEl("select");
+		const folderLbl = folderField.createEl("label", { text: "Target Folder" });
+		folderLbl.setAttribute("for", "lp-cm-folder");
+		const folderSelect = folderField.createEl("select", {
+			attr: { id: "lp-cm-folder" },
+		});
 		folderSelect.style.width = "100%";
 
 		if (this.folderOptions.length === 0) {
@@ -84,9 +98,10 @@ export class CaptureModal extends Modal {
 		// --- New Folder Name (hidden until selected) ---
 		const newFolderField = contentEl.createDiv("launchpad-capture-field");
 		newFolderField.style.display = "none";
-		newFolderField.createEl("label", { text: "New Folder Name" });
+		const newFolderLbl = newFolderField.createEl("label", { text: "New Folder Name" });
+		newFolderLbl.setAttribute("for", "lp-cm-new-folder");
 		const newFolderInput = newFolderField.createEl("input", {
-			attr: { type: "text", placeholder: "Folder name" },
+			attr: { id: "lp-cm-new-folder", type: "text", placeholder: "Folder name" },
 		});
 		newFolderInput.style.width = "100%";
 

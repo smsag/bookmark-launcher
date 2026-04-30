@@ -50,6 +50,8 @@ export class BookmarkView extends ItemView {
 		const container = this.contentEl;
 		container.empty();
 		container.addClass("launchpad-container");
+		container.setAttribute("role", "navigation");
+		container.setAttribute("aria-label", "Launchpad");
 
 		const header = container.createDiv("launchpad-header");
 		header.createSpan({ text: "Bookmarks" });
@@ -105,10 +107,20 @@ export class BookmarkView extends ItemView {
 			? "launchpad-subfolder-header"
 			: "launchpad-folder-header";
 
-		const headerEl = folderEl.createDiv(headerCls);
+		// Use <button> so Enter/Space work automatically for keyboard users.
+		// aria-expanded reflects current collapse state for screen readers.
+		const headerEl = folderEl.createEl("button", {
+			cls: headerCls,
+			attr: {
+				type: "button",
+				"aria-expanded": (!isCollapsed).toString(),
+			},
+		});
+		// aria-hidden: arrow is purely decorative; folder name is the label.
 		const arrow = headerEl.createSpan({
 			cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),
 			text: "▾",
+			attr: { "aria-hidden": "true" },
 		});
 		headerEl.createSpan({ text: folder.name });
 
@@ -126,6 +138,8 @@ export class BookmarkView extends ItemView {
 			const nowCollapsed = !contentEl.hasClass("is-collapsed");
 			contentEl.toggleClass("is-collapsed", nowCollapsed);
 			arrow.classList.toggle("collapsed", nowCollapsed);
+			// Keep aria-expanded in sync so AT users hear the new state.
+			headerEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
 			await this.host.setCollapseState(key, nowCollapsed);
 		});
 

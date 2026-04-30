@@ -259,6 +259,8 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     const container = this.contentEl;
     container.empty();
     container.addClass("launchpad-container");
+    container.setAttribute("role", "navigation");
+    container.setAttribute("aria-label", "Launchpad");
     const header = container.createDiv("launchpad-header");
     header.createSpan({ text: "Bookmarks" });
     const addBtn = header.createEl("button", {
@@ -292,10 +294,17 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       parentName ? "launchpad-subfolder" : "launchpad-folder"
     );
     const headerCls = parentName ? "launchpad-subfolder-header" : "launchpad-folder-header";
-    const headerEl = folderEl.createDiv(headerCls);
+    const headerEl = folderEl.createEl("button", {
+      cls: headerCls,
+      attr: {
+        type: "button",
+        "aria-expanded": (!isCollapsed).toString()
+      }
+    });
     const arrow = headerEl.createSpan({
       cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),
-      text: "\u25BE"
+      text: "\u25BE",
+      attr: { "aria-hidden": "true" }
     });
     headerEl.createSpan({ text: folder.name });
     const contentEl = folderEl.createDiv(
@@ -308,6 +317,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       const nowCollapsed = !contentEl.hasClass("is-collapsed");
       contentEl.toggleClass("is-collapsed", nowCollapsed);
       arrow.classList.toggle("collapsed", nowCollapsed);
+      headerEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
       await this.host.setCollapseState(key, nowCollapsed);
     });
     for (const bm of folder.bookmarks) {
@@ -353,34 +363,46 @@ var CaptureModal = class extends import_obsidian3.Modal {
     let urlValue = "";
     let folderValue = this.folderOptions.length > 0 ? this.folderOptions[0].value : UNCATEGORIZED_VALUE;
     let newFolderValue = "";
-    let urlError = "";
-    let nameError = "";
     const nameField = contentEl.createDiv("launchpad-capture-field");
-    nameField.createEl("label", { text: "Display Name" });
+    const nameLbl = nameField.createEl("label", { text: "Display Name" });
+    nameLbl.setAttribute("for", "lp-cm-name");
     const nameInput = nameField.createEl("input", {
-      attr: { type: "text", placeholder: "e.g. Linear Board" }
+      attr: {
+        id: "lp-cm-name",
+        type: "text",
+        placeholder: "e.g. Linear Board",
+        "aria-describedby": "lp-cm-name-err"
+      }
     });
     const nameErrorEl = nameField.createDiv({
       cls: "launchpad-capture-error",
-      text: ""
+      text: "",
+      attr: { id: "lp-cm-name-err", "aria-live": "polite" }
     });
     nameInput.style.width = "100%";
     const urlField = contentEl.createDiv("launchpad-capture-field");
-    urlField.createEl("label", { text: "URL" });
+    const urlLbl = urlField.createEl("label", { text: "URL" });
+    urlLbl.setAttribute("for", "lp-cm-url");
     const urlInput = urlField.createEl("input", {
       attr: {
+        id: "lp-cm-url",
         type: "text",
-        placeholder: "https:// or obsidian://"
+        placeholder: "https:// or obsidian://",
+        "aria-describedby": "lp-cm-url-err"
       }
     });
     const urlErrorEl = urlField.createDiv({
       cls: "launchpad-capture-error",
-      text: ""
+      text: "",
+      attr: { id: "lp-cm-url-err", "aria-live": "polite" }
     });
     urlInput.style.width = "100%";
     const folderField = contentEl.createDiv("launchpad-capture-field");
-    folderField.createEl("label", { text: "Target Folder" });
-    const folderSelect = folderField.createEl("select");
+    const folderLbl = folderField.createEl("label", { text: "Target Folder" });
+    folderLbl.setAttribute("for", "lp-cm-folder");
+    const folderSelect = folderField.createEl("select", {
+      attr: { id: "lp-cm-folder" }
+    });
     folderSelect.style.width = "100%";
     if (this.folderOptions.length === 0) {
       const opt = folderSelect.createEl("option", {
@@ -402,9 +424,10 @@ var CaptureModal = class extends import_obsidian3.Modal {
     });
     const newFolderField = contentEl.createDiv("launchpad-capture-field");
     newFolderField.style.display = "none";
-    newFolderField.createEl("label", { text: "New Folder Name" });
+    const newFolderLbl = newFolderField.createEl("label", { text: "New Folder Name" });
+    newFolderLbl.setAttribute("for", "lp-cm-new-folder");
     const newFolderInput = newFolderField.createEl("input", {
-      attr: { type: "text", placeholder: "Folder name" }
+      attr: { id: "lp-cm-new-folder", type: "text", placeholder: "Folder name" }
     });
     newFolderInput.style.width = "100%";
     folderSelect.addEventListener("change", () => {
@@ -493,16 +516,23 @@ var SetupModal = class extends import_obsidian4.Modal {
     });
     let pathValue = "bookmarks.md";
     const pathField = contentEl.createDiv("launchpad-capture-field");
-    pathField.createEl("label", { text: "File path (relative to vault root)" });
+    const pathLbl = pathField.createEl("label", { text: "File path (relative to vault root)" });
+    pathLbl.setAttribute("for", "lp-sm-path");
     const pathInput = pathField.createEl("input", {
       attr: {
+        id: "lp-sm-path",
         type: "text",
-        placeholder: "bookmarks.md  or  Resources/bookmarks.md"
+        placeholder: "bookmarks.md  or  Resources/bookmarks.md",
+        "aria-describedby": "lp-sm-path-err"
       }
     });
     pathInput.value = pathValue;
     pathInput.style.width = "100%";
-    const errorEl = pathField.createDiv({ cls: "launchpad-capture-error", text: "" });
+    const errorEl = pathField.createDiv({
+      cls: "launchpad-capture-error",
+      text: "",
+      attr: { id: "lp-sm-path-err", "aria-live": "polite" }
+    });
     const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian4.TFolder && f.path !== "/").sort((a, b) => a.path.localeCompare(b.path)).slice(0, 8);
     if (folders.length > 0) {
       const hintRow = pathField.createDiv("launchpad-setup-hint");
