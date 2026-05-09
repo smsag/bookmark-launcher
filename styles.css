@@ -85,11 +85,14 @@
 	font-size: 0.94em;
 	color: var(--text-muted);
 	/* Button reset — element is now a <button> for keyboard accessibility */
+	appearance: none;
+	-webkit-appearance: none;
 	width: 100%;
 	text-align: left;
-	background: none;
+	background-color: transparent;
 	border: none;
 	font-family: inherit;
+	box-shadow: none;
 }
 
 .launchpad-folder-header:hover {
@@ -123,11 +126,14 @@
 	font-size: 0.94em;
 	color: var(--text-muted);
 	/* Button reset — element is now a <button> for keyboard accessibility */
+	appearance: none;
+	-webkit-appearance: none;
 	width: 100%;
 	text-align: left;
-	background: none;
+	background-color: transparent;
 	border: none;
 	font-family: inherit;
+	box-shadow: none;
 }
 
 .launchpad-subfolder-header:hover {
