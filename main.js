@@ -306,6 +306,8 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       text: "\u25BE",
       attr: { "aria-hidden": "true" }
     });
+    const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
+    (0, import_obsidian2.setIcon)(folderIconEl, "folder");
     headerEl.createSpan({ text: folder.name });
     const contentEl = folderEl.createDiv(
       parentName ? "launchpad-subfolder-content" : "launchpad-folder-content"
@@ -330,9 +332,11 @@ var BookmarkView = class extends import_obsidian2.ItemView {
   renderBookmarkItem(parent, name, url) {
     const item = parent.createEl("a", {
       cls: "launchpad-item",
-      text: name,
       attr: { href: "#", title: url }
     });
+    const itemIconEl = item.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
+    (0, import_obsidian2.setIcon)(itemIconEl, "globe");
+    item.createSpan({ cls: "lp-item-name", text: name });
     item.addEventListener("click", (e) => {
       e.preventDefault();
       if (url.startsWith("obsidian://")) {

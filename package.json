@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-launchpad",
-	"version": "0.4.0",
+	"version": "0.4.2",
 	"description": "A sidebar launchpad for instant access to any link — internal or external — without breaking your flow.",
 	"main": "main.js",
 	"scripts": {

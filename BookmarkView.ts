@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import { BookmarkFolder, BookmarkStore } from "./types";
 import { FOLDER_SEP } from "./BookmarkStore";
 
@@ -122,6 +122,8 @@ export class BookmarkView extends ItemView {
 			text: "▾",
 			attr: { "aria-hidden": "true" },
 		});
+		const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
+		setIcon(folderIconEl, "folder");
 		headerEl.createSpan({ text: folder.name });
 
 		const contentEl = folderEl.createDiv(
@@ -159,9 +161,11 @@ export class BookmarkView extends ItemView {
 	): void {
 		const item = parent.createEl("a", {
 			cls: "launchpad-item",
-			text: name,
 			attr: { href: "#", title: url },
 		});
+		const itemIconEl = item.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
+		setIcon(itemIconEl, "globe");
+		item.createSpan({ cls: "lp-item-name", text: name });
 		item.addEventListener("click", (e) => {
 			e.preventDefault();
 			// Allowlist URL schemes — reject anything not explicitly safe.
