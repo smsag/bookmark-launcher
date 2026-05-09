@@ -149,7 +149,7 @@ export class BookmarkView extends ItemView {
 			attr: { "aria-hidden": "true" },
 		});
 		const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
-		setIcon(folderIconEl, "folder");
+		setIcon(folderIconEl, "layers");
 		headerEl.createSpan({ text: folder.name });
 
 		const contentEl = folderEl.createDiv(

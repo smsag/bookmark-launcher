@@ -323,7 +323,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       attr: { "aria-hidden": "true" }
     });
     const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
-    (0, import_obsidian2.setIcon)(folderIconEl, "folder");
+    (0, import_obsidian2.setIcon)(folderIconEl, "layers");
     headerEl.createSpan({ text: folder.name });
     const contentEl = folderEl.createDiv(
       parentName ? "launchpad-subfolder-content" : "launchpad-folder-content"

@@ -67,12 +67,10 @@
 
 .launchpad-uncategorized + .launchpad-folder,
 .launchpad-folder + .launchpad-folder {
-	border-top: 1px solid var(--background-modifier-border);
-	margin-top: 4px;
-	padding-top: 4px;
+	margin-top: 6px;
 }
 
-.launchpad-folder-header {
+.launchpad-container .launchpad-folder-header {
 	display: flex;
 	align-items: center;
 	justify-content: flex-start;
@@ -84,22 +82,21 @@
 	font-weight: 500;
 	font-size: 0.94em;
 	color: var(--text-muted);
-	/* Button reset — element is now a <button> for keyboard accessibility */
 	appearance: none;
 	-webkit-appearance: none;
 	width: 100%;
 	text-align: left;
-	background-color: transparent;
-	border: none;
+	background-color: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
 	font-family: inherit;
-	box-shadow: none;
 }
 
-.launchpad-folder-header:hover {
+.launchpad-container .launchpad-folder-header:hover {
 	background: var(--background-modifier-hover);
 }
 
-.launchpad-folder-header:focus-visible {
+.launchpad-container .launchpad-folder-header:focus-visible {
 	outline: 2px solid var(--interactive-accent);
 	outline-offset: 1px;
 }
@@ -114,7 +111,7 @@
 	margin-bottom: 1px;
 }
 
-.launchpad-subfolder-header {
+.launchpad-container .launchpad-subfolder-header {
 	display: flex;
 	align-items: center;
 	justify-content: flex-start;
@@ -125,23 +122,22 @@
 	user-select: none;
 	font-size: 0.94em;
 	color: var(--text-muted);
-	/* Button reset — element is now a <button> for keyboard accessibility */
 	appearance: none;
 	-webkit-appearance: none;
 	width: 100%;
 	text-align: left;
-	background-color: transparent;
-	border: none;
+	background-color: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
 	font-family: inherit;
-	box-shadow: none;
 }
 
-.launchpad-subfolder-header:hover {
+.launchpad-container .launchpad-subfolder-header:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
 }
 
-.launchpad-subfolder-header:focus-visible {
+.launchpad-container .launchpad-subfolder-header:focus-visible {
 	outline: 2px solid var(--interactive-accent);
 	outline-offset: 1px;
 }
