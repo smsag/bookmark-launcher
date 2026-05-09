@@ -68,6 +68,33 @@ export class BookmarkView extends ItemView {
 		});
 		addBtn.addEventListener("click", () => this.host.openCaptureModal());
 
+		// Scrollable content area
+		const scrollEl = container.createDiv("launchpad-scroll");
+
+		const collapseState = this.host.getCollapseState();
+
+		if (this.store.uncategorized.length > 0) {
+			const section = scrollEl.createDiv("launchpad-uncategorized");
+			for (const bm of this.store.uncategorized) {
+				this.renderBookmarkItem(section, bm.name, bm.url);
+			}
+		}
+
+		for (const folder of this.store.folders) {
+			this.renderFolder(scrollEl, folder, collapseState, null);
+		}
+
+		if (
+			this.store.folders.length === 0 &&
+			this.store.uncategorized.length === 0
+		) {
+			scrollEl.createDiv({
+				cls: "launchpad-empty",
+				text: 'No bookmarks yet. Press + to add one, or edit bookmarks.md directly.',
+			});
+		}
+
+		// Back link — pinned to the bottom-left of the view
 		const previousFilename = this.host.getPreviousFilename();
 		if (previousFilename !== null) {
 			const backSection = container.createDiv("launchpad-back-section");
@@ -81,29 +108,6 @@ export class BookmarkView extends ItemView {
 			backLink.addEventListener("click", (e) => {
 				e.preventDefault();
 				this.host.navigateBack();
-			});
-		}
-
-		const collapseState = this.host.getCollapseState();
-
-		if (this.store.uncategorized.length > 0) {
-			const section = container.createDiv("launchpad-uncategorized");
-			for (const bm of this.store.uncategorized) {
-				this.renderBookmarkItem(section, bm.name, bm.url);
-			}
-		}
-
-		for (const folder of this.store.folders) {
-			this.renderFolder(container, folder, collapseState, null);
-		}
-
-		if (
-			this.store.folders.length === 0 &&
-			this.store.uncategorized.length === 0
-		) {
-			container.createDiv({
-				cls: "launchpad-empty",
-				text: 'No bookmarks yet. Press + to add one, or edit bookmarks.md directly.',
 			});
 		}
 	}

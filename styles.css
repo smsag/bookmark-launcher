@@ -1,8 +1,17 @@
 .launchpad-container {
 	padding: 8px;
 	height: 100%;
-	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 	box-sizing: border-box;
+}
+
+/* Scrollable bookmark list */
+.launchpad-scroll {
+	flex: 1;
+	overflow-y: auto;
+	min-height: 0;
 }
 
 .launchpad-header {
@@ -66,18 +75,19 @@
 .launchpad-folder-header {
 	display: flex;
 	align-items: center;
+	justify-content: flex-start;
 	gap: 4px;
 	cursor: pointer;
 	padding: 3px 4px;
 	border-radius: 4px;
 	user-select: none;
 	font-weight: 500;
-	font-size: 0.82em;
+	font-size: 0.94em;
 	color: var(--text-muted);
 	/* Button reset — element is now a <button> for keyboard accessibility */
 	width: 100%;
 	text-align: left;
-	background: transparent;
+	background: none;
 	border: none;
 	font-family: inherit;
 }
@@ -104,17 +114,18 @@
 .launchpad-subfolder-header {
 	display: flex;
 	align-items: center;
+	justify-content: flex-start;
 	gap: 4px;
 	cursor: pointer;
 	padding: 2px 4px;
 	border-radius: 4px;
 	user-select: none;
-	font-size: 0.82em;
+	font-size: 0.94em;
 	color: var(--text-muted);
 	/* Button reset — element is now a <button> for keyboard accessibility */
 	width: 100%;
 	text-align: left;
-	background: transparent;
+	background: none;
 	border: none;
 	font-family: inherit;
 }
@@ -243,9 +254,10 @@
 /* Back-navigation link */
 
 .launchpad-back-section {
-	margin-bottom: 8px;
-	padding-bottom: 6px;
-	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+	padding-top: 4px;
+	margin-top: 4px;
+	border-top: 1px solid var(--background-modifier-border);
 }
 
 .launchpad-back-item {
