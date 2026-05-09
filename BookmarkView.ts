@@ -8,6 +8,12 @@ export interface BookmarkViewHost {
 	openCaptureModal(): void;
 	getCollapseState(): Record<string, boolean>;
 	setCollapseState(key: string, collapsed: boolean): Promise<void>;
+	/** Open a bookmark URL; captures the active file for obsidian:// links. */
+	openBookmarkUrl(url: string): void;
+	/** Returns the basename of the file to navigate back to, or null. */
+	getPreviousFilename(): string | null;
+	/** Navigate back to the captured file and clear the back-link. */
+	navigateBack(): Promise<void>;
 }
 
 export class BookmarkView extends ItemView {
@@ -61,6 +67,22 @@ export class BookmarkView extends ItemView {
 			attr: { "aria-label": "Add bookmark" },
 		});
 		addBtn.addEventListener("click", () => this.host.openCaptureModal());
+
+		const previousFilename = this.host.getPreviousFilename();
+		if (previousFilename !== null) {
+			const backSection = container.createDiv("launchpad-back-section");
+			const backLink = backSection.createEl("a", {
+				cls: "launchpad-back-item",
+				attr: { href: "#", title: `Go back to ${previousFilename}` },
+			});
+			const backIconEl = backLink.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
+			setIcon(backIconEl, "arrow-left");
+			backLink.createSpan({ cls: "lp-item-name", text: previousFilename });
+			backLink.addEventListener("click", (e) => {
+				e.preventDefault();
+				this.host.navigateBack();
+			});
+		}
 
 		const collapseState = this.host.getCollapseState();
 
@@ -168,17 +190,7 @@ export class BookmarkView extends ItemView {
 		item.createSpan({ cls: "lp-item-name", text: name });
 		item.addEventListener("click", (e) => {
 			e.preventDefault();
-			// Allowlist URL schemes — reject anything not explicitly safe.
-			// bookmarks.md is user-editable plain text, so a url value arriving
-			// here may differ from what was entered via the modal (which validates
-			// on input). Without this guard, a `javascript:` URI in the file
-			// would execute in Obsidian's Electron renderer with Node.js access.
-			if (url.startsWith("obsidian://")) {
-				window.open(url);
-			} else if (url.startsWith("https://") || url.startsWith("http://")) {
-				window.open(url, "_blank", "noopener,noreferrer");
-			}
-			// Any other scheme (javascript:, file:, data:, …) is silently ignored.
+			this.host.openBookmarkUrl(url);
 		});
 	}
 }

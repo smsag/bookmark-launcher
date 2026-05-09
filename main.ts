@@ -21,6 +21,8 @@ export default class LaunchpadPlugin
 {
 	store!: BookmarkStoreManager;
 	private data!: PluginData;
+	/** File that was active immediately before an obsidian:// bookmark click. */
+	private previousFile: TFile | null = null;
 
 	async onload(): Promise<void> {
 		this.data = Object.assign({}, DEFAULT_DATA, await this.loadData());
@@ -158,6 +160,40 @@ export default class LaunchpadPlugin
 	async setCollapseState(key: string, collapsed: boolean): Promise<void> {
 		this.data.collapseState[key] = collapsed;
 		await this.saveData(this.data);
+	}
+
+	openBookmarkUrl(url: string): void {
+		// Allowlist URL schemes — reject anything not explicitly safe.
+		// bookmarks.md is user-editable plain text; without this guard a
+		// javascript: URI would execute in Obsidian's Electron renderer.
+		if (url.startsWith("obsidian://")) {
+			// Capture the currently active file so the user can navigate back.
+			this.previousFile = this.app.workspace.getActiveFile();
+			window.open(url);
+			// Refresh immediately so the back link appears in the sidebar.
+			this.refreshViews();
+		} else if (url.startsWith("https://") || url.startsWith("http://")) {
+			window.open(url, "_blank", "noopener,noreferrer");
+		}
+		// Any other scheme (javascript:, file:, data:, …) is silently ignored.
+	}
+
+	getPreviousFilename(): string | null {
+		return this.previousFile?.basename ?? null;
+	}
+
+	async navigateBack(): Promise<void> {
+		const file = this.previousFile;
+		if (!file) return;
+		// Clear before navigating so the back link is gone on re-render.
+		this.previousFile = null;
+		// Guard: file may have been deleted between capture and click.
+		if (!(this.app.vault.getAbstractFileByPath(file.path) instanceof TFile)) {
+			await this.refreshViews();
+			return;
+		}
+		await this.app.workspace.getLeaf(false).openFile(file);
+		await this.refreshViews();
 	}
 
 	// ── Panel management ───────────────────────────────────────────────────

@@ -269,6 +269,21 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       attr: { "aria-label": "Add bookmark" }
     });
     addBtn.addEventListener("click", () => this.host.openCaptureModal());
+    const previousFilename = this.host.getPreviousFilename();
+    if (previousFilename !== null) {
+      const backSection = container.createDiv("launchpad-back-section");
+      const backLink = backSection.createEl("a", {
+        cls: "launchpad-back-item",
+        attr: { href: "#", title: `Go back to ${previousFilename}` }
+      });
+      const backIconEl = backLink.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
+      (0, import_obsidian2.setIcon)(backIconEl, "arrow-left");
+      backLink.createSpan({ cls: "lp-item-name", text: previousFilename });
+      backLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.host.navigateBack();
+      });
+    }
     const collapseState = this.host.getCollapseState();
     if (this.store.uncategorized.length > 0) {
       const section = container.createDiv("launchpad-uncategorized");
@@ -339,11 +354,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     item.createSpan({ cls: "lp-item-name", text: name });
     item.addEventListener("click", (e) => {
       e.preventDefault();
-      if (url.startsWith("obsidian://")) {
-        window.open(url);
-      } else if (url.startsWith("https://") || url.startsWith("http://")) {
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
+      this.host.openBookmarkUrl(url);
     });
   }
 };
@@ -610,6 +621,11 @@ var DEFAULT_DATA = {
   bookmarksFilePath: null
 };
 var LaunchpadPlugin = class extends import_obsidian5.Plugin {
+  constructor() {
+    super(...arguments);
+    /** File that was active immediately before an obsidian:// bookmark click. */
+    this.previousFile = null;
+  }
   async onload() {
     var _a;
     this.data = Object.assign({}, DEFAULT_DATA, await this.loadData());
@@ -706,6 +722,31 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   async setCollapseState(key, collapsed) {
     this.data.collapseState[key] = collapsed;
     await this.saveData(this.data);
+  }
+  openBookmarkUrl(url) {
+    if (url.startsWith("obsidian://")) {
+      this.previousFile = this.app.workspace.getActiveFile();
+      window.open(url);
+      this.refreshViews();
+    } else if (url.startsWith("https://") || url.startsWith("http://")) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }
+  getPreviousFilename() {
+    var _a, _b;
+    return (_b = (_a = this.previousFile) == null ? void 0 : _a.basename) != null ? _b : null;
+  }
+  async navigateBack() {
+    const file = this.previousFile;
+    if (!file)
+      return;
+    this.previousFile = null;
+    if (!(this.app.vault.getAbstractFileByPath(file.path) instanceof import_obsidian5.TFile)) {
+      await this.refreshViews();
+      return;
+    }
+    await this.app.workspace.getLeaf(false).openFile(file);
+    await this.refreshViews();
   }
   // ── Panel management ───────────────────────────────────────────────────
   async revealPanel() {

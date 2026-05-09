@@ -240,6 +240,38 @@
 	height: 13px;
 }
 
+/* Back-navigation link */
+
+.launchpad-back-section {
+	margin-bottom: 8px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.launchpad-back-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	color: var(--text-muted);
+	text-decoration: none;
+	font-size: 0.85em;
+	font-style: italic;
+}
+
+.launchpad-back-item:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-accent);
+	text-decoration: none;
+}
+
+.launchpad-back-item:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+}
+
 .launchpad-uncategorized {
 	margin-bottom: 8px;
 }
