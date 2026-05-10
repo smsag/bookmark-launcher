@@ -53,9 +53,15 @@ export class BookmarkView extends ItemView {
 	private render(): void {
 		// BUG-9 fix: use the ItemView.contentEl getter (the stable Obsidian API
 		// for the content pane) instead of indexing into containerEl.children[].
-		const container = this.contentEl;
-		container.empty();
-		container.addClass("launchpad-container");
+		// We clear contentEl and create a wrapper div inside it (not on contentEl
+		// itself). This is critical: Obsidian's .view-content element already has
+		// its height flex-determined by the workspace layout. Setting height: 100%
+		// directly on contentEl via a class can fail to resolve correctly, making
+		// the flex children (launchpad-scroll) collapse to zero height and hiding
+		// all bookmarks. A child div's height: 100% resolves correctly against the
+		// parent's flex-determined height.
+		this.contentEl.empty();
+		const container = this.contentEl.createDiv("launchpad-container");
 		container.setAttribute("role", "navigation");
 		container.setAttribute("aria-label", "Launchpad");
 
