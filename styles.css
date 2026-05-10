@@ -154,6 +154,8 @@
 	transition: transform 0.2s ease;
 	color: var(--text-muted);
 	flex-shrink: 0;
+	width: 10px;
+	text-align: center;
 }
 
 .launchpad-folder-arrow.collapsed {
@@ -182,7 +184,7 @@
 .launchpad-subfolder-content > .lp-inner {
 	min-height: 0;
 	overflow: hidden;
-	padding-left: 14px;
+	padding-left: 10px;
 	padding-top: 3px;
 	padding-bottom: 4px;
 }
@@ -292,6 +294,7 @@
 
 .launchpad-uncategorized {
 	margin-bottom: 8px;
+	padding-left: 10px;
 }
 
 /* Setup Modal */
