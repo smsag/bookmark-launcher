@@ -18,6 +18,21 @@ TypeScript target: ES6. Module format: CJS (Obsidian requires it). All Obsidian 
 
 After a build, `main.js` must be committed. BRAT installs directly from the repo root; it expects `manifest.json`, `main.js`, and `styles.css` to be present there.
 
+## Releasing
+
+When creating a GitHub release, always upload the three BRAT-required files as release assets — BRAT fetches them from the release, not the repo root:
+
+```bash
+npm run build
+git add -A && git commit -m "..."
+git tag <version>
+git push origin main --tags
+gh release create <version> --title "..." --notes "..."
+gh release upload <version> manifest.json main.js styles.css --clobber
+```
+
+Skipping the `gh release upload` step will cause BRAT installs/updates to fail with a missing `manifest.json` error.
+
 ## Architecture
 
 ```
