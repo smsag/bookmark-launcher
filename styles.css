@@ -1,6 +1,14 @@
+/* Applied to contentEl so .launchpad-container can use flex:1 reliably
+   across Electron (macOS) and WKWebView (iOS) without height:100% */
+.launchpad-content-el {
+	display: flex;
+	flex-direction: column;
+}
+
 .launchpad-container {
 	padding: 8px;
-	height: 100%;
+	flex: 1;
+	min-height: 0;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;

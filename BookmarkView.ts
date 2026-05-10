@@ -61,6 +61,7 @@ export class BookmarkView extends ItemView {
 		// all bookmarks. A child div's height: 100% resolves correctly against the
 		// parent's flex-determined height.
 		this.contentEl.empty();
+		this.contentEl.addClass("launchpad-content-el");
 		const container = this.contentEl.createDiv("launchpad-container");
 		container.setAttribute("role", "navigation");
 		container.setAttribute("aria-label", "Launchpad");

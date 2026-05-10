@@ -257,6 +257,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
   }
   render() {
     this.contentEl.empty();
+    this.contentEl.addClass("launchpad-content-el");
     const container = this.contentEl.createDiv("launchpad-container");
     container.setAttribute("role", "navigation");
     container.setAttribute("aria-label", "Launchpad");
