@@ -317,14 +317,14 @@ var BookmarkView = class extends import_obsidian2.ItemView {
         "aria-expanded": (!isCollapsed).toString()
       }
     });
+    const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
+    (0, import_obsidian2.setIcon)(folderIconEl, "layers");
+    headerEl.createSpan({ text: folder.name });
     const arrow = headerEl.createSpan({
       cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),
       text: "\u25BE",
       attr: { "aria-hidden": "true" }
     });
-    const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
-    (0, import_obsidian2.setIcon)(folderIconEl, "layers");
-    headerEl.createSpan({ text: folder.name });
     const contentEl = folderEl.createDiv(
       parentName ? "launchpad-subfolder-content" : "launchpad-folder-content"
     );
@@ -739,6 +739,7 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     await this.saveData(this.data);
   }
   openBookmarkUrl(url) {
+    var _a;
     if (url.startsWith("vault://")) {
       const folderPath = decodeURIComponent(url.slice("vault://".length));
       const folder = this.app.vault.getAbstractFileByPath(folderPath);
@@ -746,8 +747,13 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
         return;
       const leaves = this.app.workspace.getLeavesOfType("file-explorer");
       if (leaves.length > 0) {
+        const explorerView = leaves[0].view;
         this.app.workspace.revealLeaf(leaves[0]);
-        leaves[0].view.revealInFolder(folder);
+        const folderItem = (_a = explorerView.fileItems) == null ? void 0 : _a[folder.path];
+        if (folderItem == null ? void 0 : folderItem.setCollapsed) {
+          folderItem.setCollapsed(false);
+        }
+        explorerView.revealInFolder(folder);
       }
     } else if (url.startsWith("obsidian://")) {
       this.previousFile = this.app.workspace.getActiveFile();

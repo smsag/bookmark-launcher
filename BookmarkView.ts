@@ -149,15 +149,16 @@ export class BookmarkView extends ItemView {
 				"aria-expanded": (!isCollapsed).toString(),
 			},
 		});
-		// aria-hidden: arrow is purely decorative; folder name is the label.
+		const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
+		setIcon(folderIconEl, "layers");
+		headerEl.createSpan({ text: folder.name });
+		// Arrow is last — pushed to the right edge via margin-left: auto in CSS.
+		// aria-hidden: decorative; folder name is the accessible label.
 		const arrow = headerEl.createSpan({
 			cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),
 			text: "▾",
 			attr: { "aria-hidden": "true" },
 		});
-		const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
-		setIcon(folderIconEl, "layers");
-		headerEl.createSpan({ text: folder.name });
 
 		const contentEl = folderEl.createDiv(
 			parentName

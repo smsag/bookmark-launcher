@@ -189,8 +189,16 @@ export default class LaunchpadPlugin
 			if (!(folder instanceof TFolder)) return;
 			const leaves = this.app.workspace.getLeavesOfType("file-explorer");
 			if (leaves.length > 0) {
+				const explorerView = leaves[0].view as any;
 				this.app.workspace.revealLeaf(leaves[0]);
-				(leaves[0].view as any).revealInFolder(folder);
+				// Expand the folder in the tree, then scroll to it.
+				// fileItems is Obsidian's internal map of path → tree node;
+				// setCollapsed(false) expands the node without animation lag.
+				const folderItem = explorerView.fileItems?.[folder.path];
+				if (folderItem?.setCollapsed) {
+					folderItem.setCollapsed(false);
+				}
+				explorerView.revealInFolder(folder);
 			}
 		} else if (url.startsWith("obsidian://")) {
 			// Capture the currently active file so the user can navigate back.
