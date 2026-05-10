@@ -1,4 +1,4 @@
-import { Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { Menu, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import { BookmarkStoreManager, DEFAULT_BOOKMARKS_FILE } from "./BookmarkStore";
 import { BookmarkView, BookmarkViewHost, VIEW_TYPE_BOOKMARK } from "./BookmarkView";
 import { CaptureModal } from "./CaptureModal";
@@ -72,6 +72,23 @@ export default class LaunchpadPlugin
 				if (file instanceof TFile && file.path === this.store.getFilePath()) {
 					this.refreshViews();
 				}
+			})
+		);
+
+		// Add "Copy path for Launchpad" to the folder context menu, grouped
+		// with Obsidian's native "Copy path" item (section "info").
+		this.registerEvent(
+			this.app.workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
+				if (!(file instanceof TFolder)) return;
+				const launchpadPath =
+					"vault://" + file.path.split("/").map(encodeURIComponent).join("/");
+				menu.addItem((item) =>
+					item
+						.setTitle("Copy path for Launchpad")
+						.setIcon("copy")
+						.setSection("info")
+						.onClick(() => navigator.clipboard.writeText(launchpadPath))
+				);
 			})
 		);
 
@@ -166,7 +183,16 @@ export default class LaunchpadPlugin
 		// Allowlist URL schemes — reject anything not explicitly safe.
 		// bookmarks.md is user-editable plain text; without this guard a
 		// javascript: URI would execute in Obsidian's Electron renderer.
-		if (url.startsWith("obsidian://")) {
+		if (url.startsWith("vault://")) {
+			const folderPath = decodeURIComponent(url.slice("vault://".length));
+			const folder = this.app.vault.getAbstractFileByPath(folderPath);
+			if (!(folder instanceof TFolder)) return;
+			const leaves = this.app.workspace.getLeavesOfType("file-explorer");
+			if (leaves.length > 0) {
+				this.app.workspace.revealLeaf(leaves[0]);
+				(leaves[0].view as any).revealInFolder(folder);
+			}
+		} else if (url.startsWith("obsidian://")) {
 			// Capture the currently active file so the user can navigate back.
 			this.previousFile = this.app.workspace.getActiveFile();
 			window.open(url);

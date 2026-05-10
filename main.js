@@ -34,7 +34,7 @@ var import_obsidian5 = require("obsidian");
 var import_obsidian = require("obsidian");
 var DEFAULT_BOOKMARKS_FILE = "bookmarks.md";
 var BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
-var ALLOWED_SCHEMES = ["https://", "http://", "obsidian://"];
+var ALLOWED_SCHEMES = ["https://", "http://", "obsidian://", "vault://"];
 var FOLDER_SEP = "";
 var BookmarkStoreManager = class {
   constructor(app, filePath = DEFAULT_BOOKMARKS_FILE) {
@@ -350,8 +350,12 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       cls: "launchpad-item",
       attr: { href: "#", title: url }
     });
-    const itemIconEl = item.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
-    (0, import_obsidian2.setIcon)(itemIconEl, "globe");
+    const isVault = url.startsWith("vault://");
+    const itemIconEl = item.createSpan({
+      cls: isVault ? "lp-item-icon lp-item-icon--vault" : "lp-item-icon",
+      attr: { "aria-hidden": "true" }
+    });
+    (0, import_obsidian2.setIcon)(itemIconEl, isVault ? "folder" : "globe");
     item.createSpan({ cls: "lp-item-name", text: name });
     item.addEventListener("click", (e) => {
       e.preventDefault();
@@ -364,7 +368,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
 var import_obsidian3 = require("obsidian");
 var NEW_FOLDER_VALUE = "__new__";
 var UNCATEGORIZED_VALUE = "__uncategorized__";
-var URL_PREFIXES = ["https://", "http://", "obsidian://"];
+var URL_PREFIXES = ["https://", "http://", "obsidian://", "vault://"];
 var CaptureModal = class extends import_obsidian3.Modal {
   constructor(app, store, folderOptions) {
     super(app);
@@ -403,7 +407,7 @@ var CaptureModal = class extends import_obsidian3.Modal {
       attr: {
         id: "lp-cm-url",
         type: "text",
-        placeholder: "https:// or obsidian://",
+        placeholder: "https://, obsidian://, or vault://",
         "aria-describedby": "lp-cm-url-err"
       }
     });
@@ -475,7 +479,7 @@ var CaptureModal = class extends import_obsidian3.Modal {
     urlInput.addEventListener("input", () => {
       urlValue = urlInput.value;
       const valid = URL_PREFIXES.some((p) => urlValue.trim().startsWith(p));
-      urlErrorEl.textContent = valid ? "" : "URL must start with https://, http://, or obsidian://";
+      urlErrorEl.textContent = valid ? "" : "URL must start with https://, http://, obsidian://, or vault://";
       updateSaveBtn();
     });
     cancelBtn.addEventListener("click", () => this.close());
@@ -665,6 +669,16 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
         }
       })
     );
+    this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file) => {
+        if (!(file instanceof import_obsidian5.TFolder))
+          return;
+        const launchpadPath = "vault://" + file.path.split("/").map(encodeURIComponent).join("/");
+        menu.addItem(
+          (item) => item.setTitle("Copy path for Launchpad").setIcon("copy").setSection("info").onClick(() => navigator.clipboard.writeText(launchpadPath))
+        );
+      })
+    );
     this.app.workspace.onLayoutReady(() => this.initOnReady());
   }
   async onunload() {
@@ -725,7 +739,17 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     await this.saveData(this.data);
   }
   openBookmarkUrl(url) {
-    if (url.startsWith("obsidian://")) {
+    if (url.startsWith("vault://")) {
+      const folderPath = decodeURIComponent(url.slice("vault://".length));
+      const folder = this.app.vault.getAbstractFileByPath(folderPath);
+      if (!(folder instanceof import_obsidian5.TFolder))
+        return;
+      const leaves = this.app.workspace.getLeavesOfType("file-explorer");
+      if (leaves.length > 0) {
+        this.app.workspace.revealLeaf(leaves[0]);
+        leaves[0].view.revealInFolder(folder);
+      }
+    } else if (url.startsWith("obsidian://")) {
       this.previousFile = this.app.workspace.getActiveFile();
       window.open(url);
       this.refreshViews();

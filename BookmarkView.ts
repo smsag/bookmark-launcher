@@ -189,8 +189,12 @@ export class BookmarkView extends ItemView {
 			cls: "launchpad-item",
 			attr: { href: "#", title: url },
 		});
-		const itemIconEl = item.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
-		setIcon(itemIconEl, "globe");
+		const isVault = url.startsWith("vault://");
+		const itemIconEl = item.createSpan({
+			cls: isVault ? "lp-item-icon lp-item-icon--vault" : "lp-item-icon",
+			attr: { "aria-hidden": "true" },
+		});
+		setIcon(itemIconEl, isVault ? "folder" : "globe");
 		item.createSpan({ cls: "lp-item-name", text: name });
 		item.addEventListener("click", (e) => {
 			e.preventDefault();

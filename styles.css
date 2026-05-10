@@ -229,6 +229,10 @@
 	height: 14px;
 }
 
+.lp-item-icon--vault {
+	color: var(--color-yellow);
+}
+
 .lp-item-name {
 	flex: 1;
 	min-width: 0;

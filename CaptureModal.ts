@@ -4,7 +4,7 @@ import { BookmarkStoreManager } from "./BookmarkStore";
 
 const NEW_FOLDER_VALUE = "__new__";
 const UNCATEGORIZED_VALUE = "__uncategorized__";
-const URL_PREFIXES = ["https://", "http://", "obsidian://"];
+const URL_PREFIXES = ["https://", "http://", "obsidian://", "vault://"];
 
 export class CaptureModal extends Modal {
 	private store: BookmarkStoreManager;
@@ -56,7 +56,7 @@ export class CaptureModal extends Modal {
 			attr: {
 				id: "lp-cm-url",
 				type: "text",
-				placeholder: "https:// or obsidian://",
+				placeholder: "https://, obsidian://, or vault://",
 				"aria-describedby": "lp-cm-url-err",
 			},
 		});
@@ -146,7 +146,7 @@ export class CaptureModal extends Modal {
 			const valid = URL_PREFIXES.some((p) => urlValue.trim().startsWith(p));
 			urlErrorEl.textContent = valid
 				? ""
-				: "URL must start with https://, http://, or obsidian://";
+				: "URL must start with https://, http://, obsidian://, or vault://";
 			updateSaveBtn();
 		});
 
