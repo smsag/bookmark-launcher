@@ -355,7 +355,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       cls: isVault ? "lp-item-icon lp-item-icon--vault" : "lp-item-icon",
       attr: { "aria-hidden": "true" }
     });
-    (0, import_obsidian2.setIcon)(itemIconEl, isVault ? "folder" : "globe");
+    (0, import_obsidian2.setIcon)(itemIconEl, isVault ? "library" : "globe");
     item.createSpan({ cls: "lp-item-name", text: name });
     item.addEventListener("click", (e) => {
       e.preventDefault();

@@ -232,7 +232,7 @@
 	flex-shrink: 0;
 	width: 14px;
 	height: 14px;
-	color: var(--text-muted);
+	color: var(--color-accent);
 }
 
 .lp-item-icon svg {
@@ -241,7 +241,7 @@
 }
 
 .lp-item-icon--vault {
-	color: var(--color-yellow);
+	color: var(--color-accent);
 }
 
 .lp-item-name {
@@ -260,7 +260,7 @@
 	flex-shrink: 0;
 	width: 13px;
 	height: 13px;
-	color: var(--text-muted);
+	color: var(--color-accent);
 }
 
 .lp-folder-icon svg {

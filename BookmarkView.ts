@@ -202,7 +202,7 @@ export class BookmarkView extends ItemView {
 			cls: isVault ? "lp-item-icon lp-item-icon--vault" : "lp-item-icon",
 			attr: { "aria-hidden": "true" },
 		});
-		setIcon(itemIconEl, isVault ? "folder" : "globe");
+		setIcon(itemIconEl, isVault ? "library" : "globe");
 		item.createSpan({ cls: "lp-item-name", text: name });
 		item.addEventListener("click", (e) => {
 			e.preventDefault();
