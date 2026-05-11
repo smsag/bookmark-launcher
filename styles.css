@@ -125,7 +125,7 @@
 	justify-content: flex-start;
 	gap: 4px;
 	cursor: pointer;
-	padding: 2px 4px;
+	padding: 2px 4px 2px 8px;
 	border-radius: 4px;
 	user-select: none;
 	font-size: 0.94em;
