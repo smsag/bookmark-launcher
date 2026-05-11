@@ -739,21 +739,28 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     await this.saveData(this.data);
   }
   openBookmarkUrl(url) {
-    var _a;
     if (url.startsWith("vault://")) {
       const folderPath = decodeURIComponent(url.slice("vault://".length));
       const folder = this.app.vault.getAbstractFileByPath(folderPath);
-      if (!(folder instanceof import_obsidian5.TFolder))
+      if (!(folder instanceof import_obsidian5.TFolder)) {
+        new import_obsidian5.Notice(`Launchpad: folder not found \u2014 ${folderPath}`);
         return;
+      }
       const leaves = this.app.workspace.getLeavesOfType("file-explorer");
       if (leaves.length > 0) {
-        const explorerView = leaves[0].view;
-        this.app.workspace.revealLeaf(leaves[0]);
-        const folderItem = (_a = explorerView.fileItems) == null ? void 0 : _a[folder.path];
-        if (folderItem == null ? void 0 : folderItem.setCollapsed) {
-          folderItem.setCollapsed(false);
+        try {
+          this.app.workspace.revealLeaf(leaves[0]);
+          const view = leaves[0].view;
+          if (typeof view.revealInFolder === "function") {
+            view.revealInFolder(folder);
+          } else {
+            new import_obsidian5.Notice(`Launchpad: ${folderPath}`);
+          }
+        } catch (e) {
+          new import_obsidian5.Notice(`Launchpad: ${folderPath}`);
         }
-        explorerView.revealInFolder(folder);
+      } else {
+        new import_obsidian5.Notice(`Launchpad: ${folderPath}`);
       }
     } else if (url.startsWith("obsidian://")) {
       this.previousFile = this.app.workspace.getActiveFile();

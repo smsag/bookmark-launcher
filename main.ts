@@ -1,4 +1,4 @@
-import { Menu, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
+import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import { BookmarkStoreManager, DEFAULT_BOOKMARKS_FILE } from "./BookmarkStore";
 import { BookmarkView, BookmarkViewHost, VIEW_TYPE_BOOKMARK } from "./BookmarkView";
 import { CaptureModal } from "./CaptureModal";
@@ -186,19 +186,31 @@ export default class LaunchpadPlugin
 		if (url.startsWith("vault://")) {
 			const folderPath = decodeURIComponent(url.slice("vault://".length));
 			const folder = this.app.vault.getAbstractFileByPath(folderPath);
-			if (!(folder instanceof TFolder)) return;
+			if (!(folder instanceof TFolder)) {
+				new Notice(`Launchpad: folder not found — ${folderPath}`);
+				return;
+			}
+			// revealInFolder is an undocumented internal API.
+			// On mobile the file-explorer leaf may not exist at all.
+			// We therefore attempt the call and fall back to a Notice so the
+			// user is never left wondering why the tap did nothing.
 			const leaves = this.app.workspace.getLeavesOfType("file-explorer");
 			if (leaves.length > 0) {
-				const explorerView = leaves[0].view as any;
-				this.app.workspace.revealLeaf(leaves[0]);
-				// Expand the folder in the tree, then scroll to it.
-				// fileItems is Obsidian's internal map of path → tree node;
-				// setCollapsed(false) expands the node without animation lag.
-				const folderItem = explorerView.fileItems?.[folder.path];
-				if (folderItem?.setCollapsed) {
-					folderItem.setCollapsed(false);
+				try {
+					this.app.workspace.revealLeaf(leaves[0]);
+					const view = leaves[0].view as any;
+					if (typeof view.revealInFolder === "function") {
+						view.revealInFolder(folder);
+					} else {
+						// Internal API renamed/removed — tell the user where to look.
+						new Notice(`Launchpad: ${folderPath}`);
+					}
+				} catch {
+					new Notice(`Launchpad: ${folderPath}`);
 				}
-				explorerView.revealInFolder(folder);
+			} else {
+				// Mobile: no persistent file-explorer leaf.
+				new Notice(`Launchpad: ${folderPath}`);
 			}
 		} else if (url.startsWith("obsidian://")) {
 			// Capture the currently active file so the user can navigate back.
