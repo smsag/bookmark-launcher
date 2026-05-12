@@ -198,11 +198,14 @@ export class BookmarkView extends ItemView {
 			attr: { href: "#", title: url },
 		});
 		const isVault = url.startsWith("vault://");
+		const isNote = url.startsWith("note://");
 		const itemIconEl = item.createSpan({
-			cls: isVault ? "lp-item-icon lp-item-icon--vault" : "lp-item-icon",
+			cls: isNote ? "lp-item-icon lp-item-icon--note"
+				: isVault ? "lp-item-icon lp-item-icon--vault"
+				: "lp-item-icon",
 			attr: { "aria-hidden": "true" },
 		});
-		setIcon(itemIconEl, isVault ? "library" : "globe");
+		setIcon(itemIconEl, isNote ? "file-text" : isVault ? "library" : "globe");
 		item.createSpan({ cls: "lp-item-name", text: name });
 		item.addEventListener("click", (e) => {
 			e.preventDefault();

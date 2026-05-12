@@ -7,7 +7,7 @@ const BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 
 // Schemes that are safe to open. Anything else (javascript:, data:, file:, …)
 // is silently dropped at parse time so it never reaches the view layer.
-const ALLOWED_SCHEMES = ["https://", "http://", "obsidian://", "vault://"];
+const ALLOWED_SCHEMES = ["https://", "http://", "obsidian://", "vault://", "note://"];
 
 // Separator used in composite folder option values (e.g. "Work\x1FDesign").
 // ASCII Unit Separator (U+001F) cannot appear in user-typed text, so it

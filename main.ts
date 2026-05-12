@@ -216,6 +216,14 @@ export default class LaunchpadPlugin
 				// Mobile: no persistent file-explorer leaf.
 				new Notice(`Launchpad: ${folderPath}`);
 			}
+		} else if (url.startsWith("note://")) {
+			const notePath = url.slice("note://".length);
+			const file = this.app.metadataCache.getFirstLinkpathDest(notePath, "");
+			if (!file) {
+				new Notice(`Launchpad: note not found — ${notePath}`);
+				return;
+			}
+			this.app.workspace.getLeaf(false).openFile(file);
 		} else if (url.startsWith("obsidian://")) {
 			// Capture the currently active file so the user can navigate back.
 			this.previousFile = this.app.workspace.getActiveFile();

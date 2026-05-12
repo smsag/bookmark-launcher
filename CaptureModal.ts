@@ -4,7 +4,18 @@ import { BookmarkStoreManager } from "./BookmarkStore";
 
 const NEW_FOLDER_VALUE = "__new__";
 const UNCATEGORIZED_VALUE = "__uncategorized__";
-const URL_PREFIXES = ["https://", "http://", "obsidian://", "vault://"];
+const URL_PREFIXES = ["https://", "http://", "obsidian://", "vault://", "note://"];
+
+/** Returns true for [[wiki link]] syntax, which the modal accepts as shorthand for note:// links. */
+function isWikiLink(val: string): boolean {
+	return val.startsWith("[[") && val.endsWith("]]") && val.length > 4;
+}
+
+/** Normalizes [[wiki link]] input to the stored note:// scheme. Plain URLs are returned as-is. */
+function normalizeUrl(val: string): string {
+	if (isWikiLink(val)) return "note://" + val.slice(2, -2).trim();
+	return val;
+}
 
 export class CaptureModal extends Modal {
 	private store: BookmarkStoreManager;
@@ -56,7 +67,7 @@ export class CaptureModal extends Modal {
 			attr: {
 				id: "lp-cm-url",
 				type: "text",
-				placeholder: "https://, obsidian://, or vault://",
+				placeholder: "https://, obsidian://, vault://, note://, or [[note name]]",
 				"aria-describedby": "lp-cm-url-err",
 			},
 		});
@@ -127,7 +138,8 @@ export class CaptureModal extends Modal {
 
 		const updateSaveBtn = () => {
 			const nameOk = nameValue.trim().length > 0;
-			const urlOk = URL_PREFIXES.some((p) => urlValue.trim().startsWith(p));
+			const urlOk = URL_PREFIXES.some((p) => urlValue.trim().startsWith(p))
+				|| isWikiLink(urlValue.trim());
 			const folderOk =
 				folderValue !== NEW_FOLDER_VALUE ||
 				newFolderValue.trim().length > 0;
@@ -143,10 +155,11 @@ export class CaptureModal extends Modal {
 
 		urlInput.addEventListener("input", () => {
 			urlValue = urlInput.value;
-			const valid = URL_PREFIXES.some((p) => urlValue.trim().startsWith(p));
+			const valid = URL_PREFIXES.some((p) => urlValue.trim().startsWith(p))
+				|| isWikiLink(urlValue.trim());
 			urlErrorEl.textContent = valid
 				? ""
-				: "URL must start with https://, http://, obsidian://, or vault://";
+				: "URL must start with https://, http://, obsidian://, vault://, note://, or be [[note name]]";
 			updateSaveBtn();
 		});
 
@@ -159,7 +172,8 @@ export class CaptureModal extends Modal {
 			saveBtn.disabled = true;
 
 			const name = nameValue.trim();
-			const url = urlValue.trim();
+			// Normalize [[wiki links]] → note:// before storing
+			const url = normalizeUrl(urlValue.trim());
 			const isNew = folderValue === NEW_FOLDER_VALUE;
 			const targetFolder = isNew
 				? newFolderValue.trim()
