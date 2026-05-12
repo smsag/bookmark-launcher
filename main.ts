@@ -23,6 +23,8 @@ export default class LaunchpadPlugin
 	private data!: PluginData;
 	/** File that was active immediately before an obsidian:// bookmark click. */
 	private previousFile: TFile | null = null;
+	/** Pending exponential-backoff retry for refreshViews when iCloud read fails. */
+	private refreshRetryTimer: number | null = null;
 
 	async onload(): Promise<void> {
 		this.data = Object.assign({}, DEFAULT_DATA, await this.loadData());
@@ -96,6 +98,10 @@ export default class LaunchpadPlugin
 	}
 
 	async onunload(): Promise<void> {
+		if (this.refreshRetryTimer !== null) {
+			window.clearTimeout(this.refreshRetryTimer);
+			this.refreshRetryTimer = null;
+		}
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_BOOKMARK);
 	}
 
@@ -280,17 +286,29 @@ export default class LaunchpadPlugin
 		await this.refreshViews();
 	}
 
-	private async refreshViews(): Promise<void> {
+	private async refreshViews(retryCount = 0): Promise<void> {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
 		if (leaves.length === 0) return;
 		let storeData;
 		try {
 			storeData = await this.store.parse();
 		} catch {
-			// File not yet readable — e.g. iCloud stub not downloaded on iOS yet.
-			// The vault modify/create watcher will trigger another refresh once
-			// the file becomes locally available.
+			// File not yet readable — e.g. iCloud stub not yet downloaded on iOS.
+			// vault modify/create events do NOT fire when iCloud hydrates an already-
+			// indexed stub, so we retry explicitly with exponential backoff.
+			// 6 attempts: 1 s → 2 s → 4 s → 8 s → 16 s → 32 s (~63 s total).
+			if (retryCount < 6) {
+				this.refreshRetryTimer = window.setTimeout(
+					() => this.refreshViews(retryCount + 1),
+					1000 * Math.pow(2, retryCount)
+				);
+			}
 			return;
+		}
+		// Successful read — cancel any pending retry.
+		if (this.refreshRetryTimer !== null) {
+			window.clearTimeout(this.refreshRetryTimer);
+			this.refreshRetryTimer = null;
 		}
 		for (const leaf of leaves) {
 			if (leaf.view instanceof BookmarkView) {

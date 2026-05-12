@@ -639,6 +639,8 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     super(...arguments);
     /** File that was active immediately before an obsidian:// bookmark click. */
     this.previousFile = null;
+    /** Pending exponential-backoff retry for refreshViews when iCloud read fails. */
+    this.refreshRetryTimer = null;
   }
   async onload() {
     var _a;
@@ -691,6 +693,10 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     this.app.workspace.onLayoutReady(() => this.initOnReady());
   }
   async onunload() {
+    if (this.refreshRetryTimer !== null) {
+      window.clearTimeout(this.refreshRetryTimer);
+      this.refreshRetryTimer = null;
+    }
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_BOOKMARK);
   }
   // ── Startup ────────────────────────────────────────────────────────────
@@ -821,7 +827,7 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     }
     await this.refreshViews();
   }
-  async refreshViews() {
+  async refreshViews(retryCount = 0) {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
     if (leaves.length === 0)
       return;
@@ -829,7 +835,17 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     try {
       storeData = await this.store.parse();
     } catch (e) {
+      if (retryCount < 6) {
+        this.refreshRetryTimer = window.setTimeout(
+          () => this.refreshViews(retryCount + 1),
+          1e3 * Math.pow(2, retryCount)
+        );
+      }
       return;
+    }
+    if (this.refreshRetryTimer !== null) {
+      window.clearTimeout(this.refreshRetryTimer);
+      this.refreshRetryTimer = null;
     }
     for (const leaf of leaves) {
       if (leaf.view instanceof BookmarkView) {
