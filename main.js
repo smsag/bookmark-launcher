@@ -702,10 +702,11 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   }
   /** Adds the panel to the right sidebar if it is not already there. */
   async ensurePanelOpen() {
+    var _a;
     if (this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK).length > 0) {
       return;
     }
-    const leaf = this.app.workspace.getRightLeaf(false);
+    const leaf = (_a = this.app.workspace.getRightLeaf(false)) != null ? _a : this.app.workspace.getRightLeaf(true);
     if (!leaf)
       return;
     await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
@@ -788,13 +789,14 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   }
   // ── Panel management ───────────────────────────────────────────────────
   async revealPanel() {
+    var _a;
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
     if (existing.length > 0) {
       const leaf = existing[0];
       this.app.workspace.setActiveLeaf(leaf, { focus: true });
       this.app.workspace.revealLeaf(leaf);
     } else {
-      const leaf = this.app.workspace.getRightLeaf(false);
+      const leaf = (_a = this.app.workspace.getRightLeaf(false)) != null ? _a : this.app.workspace.getRightLeaf(true);
       if (!leaf)
         return;
       await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
@@ -806,7 +808,12 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
     if (leaves.length === 0)
       return;
-    const storeData = await this.store.parse();
+    let storeData;
+    try {
+      storeData = await this.store.parse();
+    } catch (e) {
+      return;
+    }
     for (const leaf of leaves) {
       if (leaf.view instanceof BookmarkView) {
         leaf.view.setStore(storeData);

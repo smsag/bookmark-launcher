@@ -136,7 +136,11 @@ export default class LaunchpadPlugin
 		if (this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK).length > 0) {
 			return; // Already present — Obsidian restored it from workspace state.
 		}
-		const leaf = this.app.workspace.getRightLeaf(false);
+		// getRightLeaf(false) returns null on iOS single-pane layouts because no
+		// right-sidebar split exists yet at startup. getRightLeaf(true) creates
+		// one, matching how core panels (Backlinks, etc.) behave on mobile.
+		const leaf = this.app.workspace.getRightLeaf(false)
+			?? this.app.workspace.getRightLeaf(true);
 		if (!leaf) return;
 		await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
 	}
@@ -253,9 +257,11 @@ export default class LaunchpadPlugin
 			this.app.workspace.setActiveLeaf(leaf, { focus: true });
 			this.app.workspace.revealLeaf(leaf);
 		} else {
-			// No existing leaf — create one. getRightLeaf can return null on
-			// single-pane layouts (e.g. mobile), so guard before using it.
-			const leaf = this.app.workspace.getRightLeaf(false);
+			// No existing leaf — create one. getRightLeaf(false) returns null on
+			// iOS single-pane layouts; fall back to getRightLeaf(true) which
+			// creates a new split rather than requiring one to already exist.
+			const leaf = this.app.workspace.getRightLeaf(false)
+				?? this.app.workspace.getRightLeaf(true);
 			if (!leaf) return;
 			await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
 			this.app.workspace.revealLeaf(leaf);
@@ -269,7 +275,15 @@ export default class LaunchpadPlugin
 	private async refreshViews(): Promise<void> {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
 		if (leaves.length === 0) return;
-		const storeData = await this.store.parse();
+		let storeData;
+		try {
+			storeData = await this.store.parse();
+		} catch {
+			// File not yet readable — e.g. iCloud stub not downloaded on iOS yet.
+			// The vault modify/create watcher will trigger another refresh once
+			// the file becomes locally available.
+			return;
+		}
 		for (const leaf of leaves) {
 			if (leaf.view instanceof BookmarkView) {
 				leaf.view.setStore(storeData);
