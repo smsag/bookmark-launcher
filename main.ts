@@ -223,8 +223,8 @@ export default class LaunchpadPlugin
 			}
 			this.app.workspace.getLeaf(false).openFile(file);
 		} else if (url.startsWith("obsidian://")) {
-				this.previousFile = this.app.workspace.getActiveFile();
-				window.open(url);
+			this.previousFile = this.app.workspace.getActiveFile();
+			window.open(url);
 			this.refreshViews();
 		} else if (url.startsWith("https://") || url.startsWith("http://")) {
 			window.open(url, "_blank", "noopener,noreferrer");

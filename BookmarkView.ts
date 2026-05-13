@@ -86,7 +86,7 @@ export class BookmarkView extends ItemView {
 		) {
 			scrollEl.createDiv({
 				cls: "launchpad-empty",
-				text: 'No bookmarks yet. Press + to add one, or edit bookmarks.md directly.',
+				text: 'No bookmarks yet. Press + to add one, or edit your bookmarks file directly.',
 			});
 		}
 

@@ -283,7 +283,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     if (this.store.folders.length === 0 && this.store.uncategorized.length === 0) {
       scrollEl.createDiv({
         cls: "launchpad-empty",
-        text: "No bookmarks yet. Press + to add one, or edit bookmarks.md directly."
+        text: "No bookmarks yet. Press + to add one, or edit your bookmarks file directly."
       });
     }
     const previousFilename = this.host.getPreviousFilename();
