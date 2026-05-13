@@ -1,4 +1,4 @@
-import { App, Modal, TFolder } from "obsidian";
+import { App, Modal, Setting, TFolder, normalizePath } from "obsidian";
 
 /**
  * Shown on first launch (or when the bookmarks file cannot be found).
@@ -17,8 +17,7 @@ export class SetupModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.addClass("launchpad-setup-modal");
-
-		contentEl.createEl("h2", { text: "Set up Launchpad" });
+		new Setting(contentEl).setName("Set up Launchpad").setHeading();
 		contentEl.createEl("p", {
 			cls: "launchpad-setup-description",
 			text: "Choose where to store your bookmarks file. You can place it anywhere inside your vault — it stays a plain Markdown file you can edit directly.",
@@ -40,7 +39,6 @@ export class SetupModal extends Modal {
 			},
 		});
 		pathInput.value = pathValue;
-		pathInput.style.width = "100%";
 
 		// aria-live="polite" so screen readers announce validation messages
 		// without interrupting the current reading flow.
@@ -113,7 +111,7 @@ export class SetupModal extends Modal {
 			if (err) { errorEl.textContent = err; return; }
 			confirmBtn.disabled = true;
 			confirmBtn.setText("Creating…");
-			await this.onConfirm(pathValue.trim());
+			await this.onConfirm(normalizePath(pathValue.trim()));
 			this.close();
 		});
 

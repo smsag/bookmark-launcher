@@ -102,7 +102,6 @@ export default class LaunchpadPlugin
 			window.clearTimeout(this.refreshRetryTimer);
 			this.refreshRetryTimer = null;
 		}
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE_BOOKMARK);
 	}
 
 	// ── Startup ────────────────────────────────────────────────────────────

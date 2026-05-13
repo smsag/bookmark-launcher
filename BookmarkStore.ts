@@ -26,7 +26,6 @@ function stripCtrl(s: string): string {
 export class BookmarkStoreManager {
 	private app: App;
 	private filePath: string;
-	private writing = false;
 
 	constructor(app: App, filePath: string = DEFAULT_BOOKMARKS_FILE) {
 		this.app = app;
@@ -193,17 +192,13 @@ export class BookmarkStoreManager {
 		targetFolderName: string,
 		isNewFolder: boolean
 	): Promise<void> {
-		if (this.writing) return;
-		this.writing = true;
-
 		// Sanitize at the write boundary: strip control characters that could
 		// inject extra Markdown structure into bookmarks.md when serialized.
 		bookmark = { name: stripCtrl(bookmark.name), url: bookmark.url.replace(/[\x00-\x1f\x7f]/g, "").trim() };
 		targetFolderName = stripCtrl(targetFolderName);
-		try {
-			const f = await this.ensureFile();
-			// Re-read before writing to respect external edits
-			const content = await this.app.vault.read(f);
+
+		const f = await this.ensureFile();
+		await this.app.vault.process(f, (content) => {
 			const store = this.parseContent(content);
 
 			if (isNewFolder) {
@@ -252,9 +247,7 @@ export class BookmarkStoreManager {
 				}
 			}
 
-			await this.app.vault.modify(f, this.serialize(store));
-		} finally {
-			this.writing = false;
-		}
+			return this.serialize(store);
+		});
 	}
 }

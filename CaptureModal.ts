@@ -1,4 +1,4 @@
-import { App, Modal } from "obsidian";
+import { App, Modal, Setting } from "obsidian";
 import { Bookmark, FolderOption } from "./types";
 import { BookmarkStoreManager } from "./BookmarkStore";
 
@@ -30,7 +30,7 @@ export class CaptureModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.addClass("launchpad-capture-modal");
-		contentEl.createEl("h2", { text: "Add Bookmark" });
+		new Setting(contentEl).setName("Add bookmark").setHeading();
 
 		let nameValue = "";
 		let urlValue = "";
@@ -40,7 +40,7 @@ export class CaptureModal extends Modal {
 
 		// --- Display Name ---
 		const nameField = contentEl.createDiv("launchpad-capture-field");
-		const nameLbl = nameField.createEl("label", { text: "Display Name" });
+		const nameLbl = nameField.createEl("label", { text: "Display name" });
 		nameLbl.setAttribute("for", "lp-cm-name");
 		const nameInput = nameField.createEl("input", {
 			attr: {
@@ -57,7 +57,6 @@ export class CaptureModal extends Modal {
 			text: "",
 			attr: { id: "lp-cm-name-err", "aria-live": "polite" },
 		});
-		nameInput.style.width = "100%";
 
 		// --- URL ---
 		const urlField = contentEl.createDiv("launchpad-capture-field");
@@ -76,16 +75,14 @@ export class CaptureModal extends Modal {
 			text: "",
 			attr: { id: "lp-cm-url-err", "aria-live": "polite" },
 		});
-		urlInput.style.width = "100%";
 
-		// --- Target Folder ---
+		// --- Target folder ---
 		const folderField = contentEl.createDiv("launchpad-capture-field");
-		const folderLbl = folderField.createEl("label", { text: "Target Folder" });
+		const folderLbl = folderField.createEl("label", { text: "Target folder" });
 		folderLbl.setAttribute("for", "lp-cm-folder");
 		const folderSelect = folderField.createEl("select", {
 			attr: { id: "lp-cm-folder" },
 		});
-		folderSelect.style.width = "100%";
 
 		if (this.folderOptions.length === 0) {
 			const opt = folderSelect.createEl("option", {
@@ -106,20 +103,17 @@ export class CaptureModal extends Modal {
 			attr: { value: NEW_FOLDER_VALUE },
 		});
 
-		// --- New Folder Name (hidden until selected) ---
-		const newFolderField = contentEl.createDiv("launchpad-capture-field");
-		newFolderField.style.display = "none";
-		const newFolderLbl = newFolderField.createEl("label", { text: "New Folder Name" });
+		// --- New folder name (hidden until selected) ---
+		const newFolderField = contentEl.createDiv("launchpad-capture-field launchpad-hidden");
+		const newFolderLbl = newFolderField.createEl("label", { text: "New folder name" });
 		newFolderLbl.setAttribute("for", "lp-cm-new-folder");
 		const newFolderInput = newFolderField.createEl("input", {
 			attr: { id: "lp-cm-new-folder", type: "text", placeholder: "Folder name" },
 		});
-		newFolderInput.style.width = "100%";
 
 		folderSelect.addEventListener("change", () => {
 			folderValue = folderSelect.value;
-			newFolderField.style.display =
-				folderValue === NEW_FOLDER_VALUE ? "" : "none";
+			newFolderField.toggleClass("launchpad-hidden", folderValue !== NEW_FOLDER_VALUE);
 			updateSaveBtn();
 		});
 
