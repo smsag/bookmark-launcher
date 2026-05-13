@@ -1,4 +1,4 @@
-import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
+import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
 import { BookmarkStoreManager, DEFAULT_BOOKMARKS_FILE } from "./BookmarkStore";
 import { BookmarkView, BookmarkViewHost, VIEW_TYPE_BOOKMARK } from "./BookmarkView";
 import { CaptureModal } from "./CaptureModal";
@@ -59,26 +59,15 @@ export default class LaunchpadPlugin
 		});
 
 		// Re-render sidebar whenever the bookmarks file changes.
-		// We read this.store.getFilePath() at event time so it always tracks the
-		// current path even if the user reconfigures it mid-session.
-		this.registerEvent(
-			this.app.vault.on("modify", (file) => {
-				if (file instanceof TFile && file.path === this.store.getFilePath()) {
-					this.refreshViews();
-				}
-			})
-		);
+		const onBookmarksFileChange = (file: TAbstractFile) => {
+			if (file instanceof TFile && file.path === this.store.getFilePath())
+				this.refreshViews();
+		};
+		this.registerEvent(this.app.vault.on("modify", onBookmarksFileChange));
+		this.registerEvent(this.app.vault.on("create", onBookmarksFileChange));
 
-		this.registerEvent(
-			this.app.vault.on("create", (file) => {
-				if (file instanceof TFile && file.path === this.store.getFilePath()) {
-					this.refreshViews();
-				}
-			})
-		);
-
-		// Fix-C: iCloud can replace a stub with the real file via a rename rather
-		// than a modify, which the modify/create watchers would miss entirely.
+		// iCloud can replace a stub with the real file via a rename, which
+		// modify/create watchers would miss.
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
 				const path = this.store.getFilePath();
@@ -120,32 +109,27 @@ export default class LaunchpadPlugin
 
 	private async initOnReady(): Promise<void> {
 		if (this.data.bookmarksFilePath) {
-			// Path already configured — ensure the panel is visible in the
-			// right sidebar and then populate it with the current store.
-			// refreshViews() alone is not enough: it bails early when no leaf
-			// exists, and onunload() removes the leaf before Obsidian writes
-			// workspace.json, so there is nothing for Obsidian to restore on
-			// the next launch. ensurePanelOpen() guarantees the leaf is always
-			// present after startup, matching the behaviour of core panels like
-			// Backlinks and Outgoing Links.
-			await this.ensurePanelOpen();
-			await this.refreshViews();
+			await this.openAndRefresh();
 			return;
 		}
 
-		// No path stored yet. Check whether bookmarks.md already exists at the
-		// vault root (e.g. user is upgrading from v0.1.0 which always used that
-		// path). If so, silently adopt it so existing users aren't interrupted.
+		// No path stored yet — check for a legacy bookmarks.md at the vault root
+		// (users upgrading from v0.1.0). Silently adopt it to avoid interruption.
 		const legacyFile = this.app.vault.getAbstractFileByPath(DEFAULT_BOOKMARKS_FILE);
 		if (legacyFile instanceof TFile) {
 			await this.adoptPath(DEFAULT_BOOKMARKS_FILE);
-			await this.ensurePanelOpen();
-			await this.refreshViews();
+			await this.openAndRefresh();
 			return;
 		}
 
 		// Genuinely first launch — ask the user where they want the file.
 		this.showSetupModal();
+	}
+
+	/** Ensures the sidebar panel is open and populated. */
+	private async openAndRefresh(): Promise<void> {
+		await this.ensurePanelOpen();
+		await this.refreshViews();
 	}
 
 	/** Adds the panel to the right sidebar if it is not already there. */
@@ -168,9 +152,6 @@ export default class LaunchpadPlugin
 		new SetupModal(this.app, async (chosenPath: string) => {
 			await this.adoptPath(chosenPath);
 			await this.store.ensureFile();
-			// BUG-4 fix: revealPanel now always calls refreshViews, so we don't
-			// need an explicit call here — doing both caused two concurrent
-			// vault.read calls in undefined completion order.
 			await this.revealPanel();
 		}).open();
 	}
@@ -184,11 +165,10 @@ export default class LaunchpadPlugin
 
 	// ── BookmarkViewHost ───────────────────────────────────────────────────
 
-	openCaptureModal(): void {
-		this.store.parse().then((storeData) => {
-			const folderOptions = this.store.getFolderOptions(storeData);
-			new CaptureModal(this.app, this.store, folderOptions).open();
-		});
+	async openCaptureModal(): Promise<void> {
+		const storeData = await this.store.parse();
+		const folderOptions = this.store.getFolderOptions(storeData);
+		new CaptureModal(this.app, this.store, folderOptions).open();
 	}
 
 	getCollapseState(): Record<string, boolean> {
@@ -220,10 +200,6 @@ export default class LaunchpadPlugin
 				new Notice(`Launchpad: folder not found — ${folderPath}`);
 				return;
 			}
-			// revealInFolder is an undocumented internal API.
-			// On mobile the file-explorer leaf may not exist at all.
-			// We therefore attempt the call and fall back to a Notice so the
-			// user is never left wondering why the tap did nothing.
 			const leaves = this.app.workspace.getLeavesOfType("file-explorer");
 			if (leaves.length > 0) {
 				try {
@@ -231,17 +207,14 @@ export default class LaunchpadPlugin
 					const view = leaves[0].view as any;
 					if (typeof view.revealInFolder === "function") {
 						view.revealInFolder(folder);
-					} else {
-						// Internal API renamed/removed — tell the user where to look.
-						new Notice(`Launchpad: ${folderPath}`);
+						return;
 					}
 				} catch {
-					new Notice(`Launchpad: ${folderPath}`);
+					// fall through to Notice
 				}
-			} else {
-				// Mobile: no persistent file-explorer leaf.
-				new Notice(`Launchpad: ${folderPath}`);
 			}
+			// Mobile (no file-explorer leaf) or internal API renamed/removed.
+			new Notice(`Launchpad: ${folderPath}`);
 		} else if (url.startsWith("note://")) {
 			const notePath = url.slice("note://".length);
 			const file = this.app.metadataCache.getFirstLinkpathDest(notePath, "");
@@ -251,10 +224,8 @@ export default class LaunchpadPlugin
 			}
 			this.app.workspace.getLeaf(false).openFile(file);
 		} else if (url.startsWith("obsidian://")) {
-			// Capture the currently active file so the user can navigate back.
-			this.previousFile = this.app.workspace.getActiveFile();
-			window.open(url);
-			// Refresh immediately so the back link appears in the sidebar.
+				this.previousFile = this.app.workspace.getActiveFile();
+				window.open(url);
 			this.refreshViews();
 		} else if (url.startsWith("https://") || url.startsWith("http://")) {
 			window.open(url, "_blank", "noopener,noreferrer");
@@ -300,9 +271,8 @@ export default class LaunchpadPlugin
 			await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
 			this.app.workspace.revealLeaf(leaf);
 		}
-		// BUG-4 fix: always refresh after revealing so callers (e.g. the setup
-		// modal callback) don't need a separate refreshViews() call — which
-		// previously caused two concurrent vault.read calls in undefined order.
+		// Always refresh after revealing so callers don't need a separate
+		// refreshViews() call (which caused two concurrent vault.read calls).
 		await this.refreshViews();
 	}
 
@@ -313,10 +283,9 @@ export default class LaunchpadPlugin
 		try {
 			storeData = await this.store.parse();
 		} catch {
-			// File not yet readable — e.g. iCloud stub not yet downloaded on iOS.
-			// vault modify/create events do NOT fire when iCloud hydrates an already-
-			// indexed stub, so we retry explicitly with exponential backoff.
-			// 6 attempts: 1 s → 2 s → 4 s → 8 s → 16 s → 32 s (~63 s total).
+			// File not yet readable (e.g. iCloud stub not yet downloaded on iOS).
+			// vault modify/create events don't fire when iCloud hydrates a stub,
+			// so retry with exponential backoff (6 attempts, ~63 s total).
 			if (retryCount < 6) {
 				this.refreshRetryTimer = window.setTimeout(
 					() => this.refreshViews(retryCount + 1),

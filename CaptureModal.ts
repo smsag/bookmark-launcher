@@ -1,4 +1,4 @@
-import { App, Modal, Setting } from "obsidian";
+import { App, Modal } from "obsidian";
 import { Bookmark, FolderOption } from "./types";
 import { BookmarkStoreManager } from "./BookmarkStore";
 
@@ -166,13 +166,12 @@ export class CaptureModal extends Modal {
 		cancelBtn.addEventListener("click", () => this.close());
 
 		saveBtn.addEventListener("click", async () => {
-			// BUG-5 fix: disable immediately to prevent double-submit via rapid
-			// Enter presses or double-clicks before the async write completes.
+			// Disable immediately to prevent double-submit before the async
+			// write completes.
 			if (saveBtn.disabled) return;
 			saveBtn.disabled = true;
 
 			const name = nameValue.trim();
-			// Normalize [[wiki links]] → note:// before storing
 			const url = normalizeUrl(urlValue.trim());
 			const isNew = folderValue === NEW_FOLDER_VALUE;
 			const targetFolder = isNew

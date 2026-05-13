@@ -19,6 +19,10 @@ const ALLOWED_SCHEMES = ["https://", "http://", "obsidian://", "vault://", "note
 // names themselves contain slashes or other punctuation.
 export const FOLDER_SEP = "\x1F";
 
+function stripCtrl(s: string): string {
+	return s.replace(/[\x00-\x1f\x7f]/g, " ").trim();
+}
+
 export class BookmarkStoreManager {
 	private app: App;
 	private filePath: string;
@@ -44,12 +48,11 @@ export class BookmarkStoreManager {
 
 	/** Creates any missing parent folders for this.filePath. */
 	private async ensureParentFolders(): Promise<void> {
-		const segments = this.filePath.split("/");
-		segments.pop(); // drop the filename
-		if (segments.length === 0) return;
+		const dirs = this.filePath.split("/").slice(0, -1);
+		if (dirs.length === 0) return;
 
 		let current = "";
-		for (const seg of segments) {
+		for (const seg of dirs) {
 			current = current ? `${current}/${seg}` : seg;
 			const node = this.app.vault.getAbstractFileByPath(current);
 			if (!node) {
@@ -68,11 +71,6 @@ export class BookmarkStoreManager {
 			await this.ensureParentFolders();
 			await this.app.vault.create(this.filePath, "");
 			f = this.getFile();
-			// BUG-2 fix: vault.create is async but getAbstractFileByPath reads
-			// from an in-memory index that Obsidian updates synchronously when
-			// create resolves. If it is somehow still null, fail loudly so the
-			// caller gets a clear error instead of a runtime crash deep in
-			// vault.read(null).
 			if (!f) {
 				throw new Error(
 					`Bookmark Launcher: failed to create "${this.filePath}". ` +
@@ -87,10 +85,9 @@ export class BookmarkStoreManager {
 		const f = this.getFile();
 		if (!f) return { folders: [], uncategorized: [] };
 		const content = await this.app.vault.read(f);
-		// Fix-A: vault.read() returns "" (not a throw) when iCloud hasn't hydrated
-		// the file yet, even when marked as "Download and Keep". If the file has a
-		// known non-zero size but we got empty content, treat it as a read failure
-		// so the exponential-backoff retry in refreshViews() kicks in.
+		// vault.read() returns "" (not a throw) when iCloud hasn't hydrated the
+		// file yet. Treat an unexpectedly empty file as a read failure so the
+		// exponential-backoff retry in refreshViews() kicks in.
 		if (content === "" && f.stat.size > 0) {
 			throw new Error(
 				`Launchpad: empty read for "${this.filePath}" (size=${f.stat.size}) — likely iCloud not yet hydrated`
@@ -112,9 +109,7 @@ export class BookmarkStoreManager {
 					currentSubfolder = { name, bookmarks: [], subfolders: [] };
 					currentFolder.subfolders.push(currentSubfolder);
 				} else {
-					// BUG-8 fix: orphaned ## with no preceding # — treat as a
-					// top-level folder so bookmarks beneath it are not silently
-					// dropped into uncategorized.
+					// Orphaned ## with no preceding # — treat as top-level.
 					currentSubfolder = null;
 					currentFolder = { name, bookmarks: [], subfolders: [] };
 					store.folders.push(currentFolder);
@@ -128,10 +123,8 @@ export class BookmarkStoreManager {
 				const m = line.match(BOOKMARK_RE);
 				if (m) {
 					const parsedUrl = m[2];
-					// Drop bookmarks whose URL scheme is not explicitly allowed.
-					// This is a defence-in-depth guard: the modal validates on
-					// input, but bookmarks.md is a plain file anyone (or any
-					// plugin) can write directly.
+					// Defence-in-depth: drop disallowed schemes even if they
+					// bypass the modal (bookmarks.md is a plain, editable file).
 					if (!ALLOWED_SCHEMES.some((s) => parsedUrl.startsWith(s))) {
 						continue;
 					}
@@ -173,8 +166,8 @@ export class BookmarkStoreManager {
 			}
 		}
 
-		// BUG-10 fix: always end with a newline so external editors that add
-		// one don't produce a perpetually dirty file on every plugin write.
+		// Always end with a newline to avoid a dirty-file cycle with editors
+		// that append one on save.
 		return parts.join("\n") + "\n";
 	}
 
@@ -183,10 +176,9 @@ export class BookmarkStoreManager {
 		for (const folder of store.folders) {
 			opts.push({ label: folder.name, value: folder.name, isSubfolder: false });
 			for (const sub of folder.subfolders) {
-				// BUG-7 fix: use a composite "parent\x1Fchild" value so that
-				// addBookmark can locate the exact subfolder even when two
-				// different top-level folders share a subfolder of the same name.
-				opts.push({
+				// Composite "parent\x1Fchild" value disambiguates subfolders that
+				// share a name across different top-level folders.
+				opts.push(
 					label: `  ${sub.name}`,
 					value: `${folder.name}${FOLDER_SEP}${sub.name}`,
 					isSubfolder: true,
@@ -204,10 +196,8 @@ export class BookmarkStoreManager {
 		if (this.writing) return;
 		this.writing = true;
 
-		// Sanitize at the write boundary: strip control characters (including
-		// newlines and null bytes) that could inject extra Markdown structure
-		// into bookmarks.md when serialized.
-		const stripCtrl = (s: string) => s.replace(/[\x00-\x1f\x7f]/g, " ").trim();
+		// Sanitize at the write boundary: strip control characters that could
+		// inject extra Markdown structure into bookmarks.md when serialized.
 		bookmark = { name: stripCtrl(bookmark.name), url: bookmark.url.replace(/[\x00-\x1f\x7f]/g, "").trim() };
 		targetFolderName = stripCtrl(targetFolderName);
 		try {
@@ -227,8 +217,6 @@ export class BookmarkStoreManager {
 			} else {
 				let added = false;
 
-				// BUG-7 fix: composite subfolder key ("parent\x1Fchild") lets
-				// us find the precise subfolder without ambiguity.
 				const sepIdx = targetFolderName.indexOf(FOLDER_SEP);
 				if (sepIdx !== -1) {
 					const parentName = targetFolderName.slice(0, sepIdx);

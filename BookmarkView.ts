@@ -5,7 +5,7 @@ import { FOLDER_SEP } from "./BookmarkStore";
 export const VIEW_TYPE_BOOKMARK = "launchpad-view";
 
 export interface BookmarkViewHost {
-	openCaptureModal(): void;
+	openCaptureModal(): Promise<void>;
 	getCollapseState(): Record<string, boolean>;
 	setCollapseState(key: string, collapsed: boolean): Promise<void>;
 	/** Open a bookmark URL; captures the active file for obsidian:// links. */
@@ -41,25 +41,14 @@ export class BookmarkView extends ItemView {
 		this.render();
 	}
 
-	async onClose(): Promise<void> {
-		// nothing to clean up
-	}
-
 	setStore(store: BookmarkStore): void {
 		this.store = store;
 		this.render();
 	}
 
 	private render(): void {
-		// BUG-9 fix: use the ItemView.contentEl getter (the stable Obsidian API
-		// for the content pane) instead of indexing into containerEl.children[].
-		// We clear contentEl and create a wrapper div inside it (not on contentEl
-		// itself). This is critical: Obsidian's .view-content element already has
-		// its height flex-determined by the workspace layout. Setting height: 100%
-		// directly on contentEl via a class can fail to resolve correctly, making
-		// the flex children (launchpad-scroll) collapse to zero height and hiding
-		// all bookmarks. A child div's height: 100% resolves correctly against the
-		// parent's flex-determined height.
+		// A child div is required — height: 100% on contentEl itself doesn't
+		// resolve correctly against a flex-determined parent.
 		this.contentEl.empty();
 		this.contentEl.addClass("launchpad-content-el");
 		const container = this.contentEl.createDiv("launchpad-container");
@@ -125,8 +114,6 @@ export class BookmarkView extends ItemView {
 		collapseState: Record<string, boolean>,
 		parentName: string | null
 	): void {
-		// BUG-7 fix: use FOLDER_SEP (\x1F) instead of "/" so that folder names
-		// which themselves contain a slash don't produce colliding keys.
 		const key = parentName
 			? `${parentName}${FOLDER_SEP}${folder.name}`
 			: folder.name;
@@ -140,8 +127,8 @@ export class BookmarkView extends ItemView {
 			? "launchpad-subfolder-header"
 			: "launchpad-folder-header";
 
-		// Use <button> so Enter/Space work automatically for keyboard users.
-		// aria-expanded reflects current collapse state for screen readers.
+		// Use <button> so Enter/Space work for keyboard users; aria-expanded
+		// reflects collapse state for screen readers.
 		const headerEl = folderEl.createEl("button", {
 			cls: headerCls,
 			attr: {
@@ -174,7 +161,6 @@ export class BookmarkView extends ItemView {
 			const nowCollapsed = !contentEl.hasClass("is-collapsed");
 			contentEl.toggleClass("is-collapsed", nowCollapsed);
 			arrow.classList.toggle("collapsed", nowCollapsed);
-			// Keep aria-expanded in sync so AT users hear the new state.
 			headerEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
 			await this.host.setCollapseState(key, nowCollapsed);
 		});
