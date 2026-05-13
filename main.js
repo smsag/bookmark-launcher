@@ -33,12 +33,14 @@ var import_obsidian5 = require("obsidian");
 // BookmarkStore.ts
 var import_obsidian = require("obsidian");
 var DEFAULT_BOOKMARKS_FILE = "bookmarks.md";
-var BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
+var BOOKMARK_RE = /^\s*-\s+\[(.+?)\]\((.+)\)\s*$/;
 var ALLOWED_SCHEMES = ["https://", "http://", "obsidian://", "vault://", "note://"];
 var FOLDER_SEP = "";
+function stripCtrl(s) {
+  return s.replace(/[\x00-\x1f\x7f]/g, " ").trim();
+}
 var BookmarkStoreManager = class {
   constructor(app, filePath = DEFAULT_BOOKMARKS_FILE) {
-    this.writing = false;
     this.app = app;
     this.filePath = filePath;
   }
@@ -54,12 +56,11 @@ var BookmarkStoreManager = class {
   }
   /** Creates any missing parent folders for this.filePath. */
   async ensureParentFolders() {
-    const segments = this.filePath.split("/");
-    segments.pop();
-    if (segments.length === 0)
+    const dirs = this.filePath.split("/").slice(0, -1);
+    if (dirs.length === 0)
       return;
     let current = "";
-    for (const seg of segments) {
+    for (const seg of dirs) {
       current = current ? `${current}/${seg}` : seg;
       const node = this.app.vault.getAbstractFileByPath(current);
       if (!node) {
@@ -176,12 +177,10 @@ var BookmarkStoreManager = class {
     return opts;
   }
   async addBookmark(bookmark, targetFolderName, isNewFolder) {
-    if (this.writing)
-      return;
-    this.writing = true;
-    try {
-      const f = await this.ensureFile();
-      const content = await this.app.vault.read(f);
+    bookmark = { name: stripCtrl(bookmark.name), url: bookmark.url.replace(/[\x00-\x1f\x7f]/g, "").trim() };
+    targetFolderName = stripCtrl(targetFolderName);
+    const f = await this.ensureFile();
+    await this.app.vault.process(f, (content) => {
       const store = this.parseContent(content);
       if (isNewFolder) {
         store.folders.push({
@@ -226,10 +225,8 @@ var BookmarkStoreManager = class {
           });
         }
       }
-      await this.app.vault.modify(f, this.serialize(store));
-    } finally {
-      this.writing = false;
-    }
+      return this.serialize(store);
+    });
   }
 };
 
@@ -253,8 +250,6 @@ var BookmarkView = class extends import_obsidian2.ItemView {
   }
   async onOpen() {
     this.render();
-  }
-  async onClose() {
   }
   setStore(store) {
     this.store = store;
@@ -392,13 +387,13 @@ var CaptureModal = class extends import_obsidian3.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass("launchpad-capture-modal");
-    contentEl.createEl("h2", { text: "Add Bookmark" });
+    new import_obsidian3.Setting(contentEl).setName("Add bookmark").setHeading();
     let nameValue = "";
     let urlValue = "";
     let folderValue = this.folderOptions.length > 0 ? this.folderOptions[0].value : UNCATEGORIZED_VALUE;
     let newFolderValue = "";
     const nameField = contentEl.createDiv("launchpad-capture-field");
-    const nameLbl = nameField.createEl("label", { text: "Display Name" });
+    const nameLbl = nameField.createEl("label", { text: "Display name" });
     nameLbl.setAttribute("for", "lp-cm-name");
     const nameInput = nameField.createEl("input", {
       attr: {
@@ -413,7 +408,6 @@ var CaptureModal = class extends import_obsidian3.Modal {
       text: "",
       attr: { id: "lp-cm-name-err", "aria-live": "polite" }
     });
-    nameInput.style.width = "100%";
     const urlField = contentEl.createDiv("launchpad-capture-field");
     const urlLbl = urlField.createEl("label", { text: "URL" });
     urlLbl.setAttribute("for", "lp-cm-url");
@@ -430,14 +424,12 @@ var CaptureModal = class extends import_obsidian3.Modal {
       text: "",
       attr: { id: "lp-cm-url-err", "aria-live": "polite" }
     });
-    urlInput.style.width = "100%";
     const folderField = contentEl.createDiv("launchpad-capture-field");
-    const folderLbl = folderField.createEl("label", { text: "Target Folder" });
+    const folderLbl = folderField.createEl("label", { text: "Target folder" });
     folderLbl.setAttribute("for", "lp-cm-folder");
     const folderSelect = folderField.createEl("select", {
       attr: { id: "lp-cm-folder" }
     });
-    folderSelect.style.width = "100%";
     if (this.folderOptions.length === 0) {
       const opt = folderSelect.createEl("option", {
         text: "Uncategorized",
@@ -456,17 +448,15 @@ var CaptureModal = class extends import_obsidian3.Modal {
       text: "+ New folder\u2026",
       attr: { value: NEW_FOLDER_VALUE }
     });
-    const newFolderField = contentEl.createDiv("launchpad-capture-field");
-    newFolderField.style.display = "none";
-    const newFolderLbl = newFolderField.createEl("label", { text: "New Folder Name" });
+    const newFolderField = contentEl.createDiv("launchpad-capture-field launchpad-hidden");
+    const newFolderLbl = newFolderField.createEl("label", { text: "New folder name" });
     newFolderLbl.setAttribute("for", "lp-cm-new-folder");
     const newFolderInput = newFolderField.createEl("input", {
       attr: { id: "lp-cm-new-folder", type: "text", placeholder: "Folder name" }
     });
-    newFolderInput.style.width = "100%";
     folderSelect.addEventListener("change", () => {
       folderValue = folderSelect.value;
-      newFolderField.style.display = folderValue === NEW_FOLDER_VALUE ? "" : "none";
+      newFolderField.toggleClass("launchpad-hidden", folderValue !== NEW_FOLDER_VALUE);
       updateSaveBtn();
     });
     newFolderInput.addEventListener("input", () => {
@@ -543,7 +533,7 @@ var SetupModal = class extends import_obsidian4.Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass("launchpad-setup-modal");
-    contentEl.createEl("h2", { text: "Set up Launchpad" });
+    new import_obsidian4.Setting(contentEl).setName("Set up Launchpad").setHeading();
     contentEl.createEl("p", {
       cls: "launchpad-setup-description",
       text: "Choose where to store your bookmarks file. You can place it anywhere inside your vault \u2014 it stays a plain Markdown file you can edit directly."
@@ -561,7 +551,6 @@ var SetupModal = class extends import_obsidian4.Modal {
       }
     });
     pathInput.value = pathValue;
-    pathInput.style.width = "100%";
     const errorEl = pathField.createDiv({
       cls: "launchpad-capture-error",
       text: "",
@@ -597,6 +586,8 @@ var SetupModal = class extends import_obsidian4.Modal {
         return "Use a relative path \u2014 no leading slash.";
       if (v.includes(".."))
         return "Path cannot contain ..";
+      if (/[\x00-\x1f\x7f]/.test(v))
+        return "Path contains invalid characters.";
       return "";
     };
     pathInput.addEventListener("input", () => {
@@ -619,7 +610,7 @@ var SetupModal = class extends import_obsidian4.Modal {
       }
       confirmBtn.disabled = true;
       confirmBtn.setText("Creating\u2026");
-      await this.onConfirm(pathValue.trim());
+      await this.onConfirm((0, import_obsidian4.normalizePath)(pathValue.trim()));
       this.close();
     });
     pathInput.addEventListener("keydown", (e) => {
@@ -671,20 +662,12 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
       name: "Configure bookmarks file location",
       callback: () => this.showSetupModal()
     });
-    this.registerEvent(
-      this.app.vault.on("modify", (file) => {
-        if (file instanceof import_obsidian5.TFile && file.path === this.store.getFilePath()) {
-          this.refreshViews();
-        }
-      })
-    );
-    this.registerEvent(
-      this.app.vault.on("create", (file) => {
-        if (file instanceof import_obsidian5.TFile && file.path === this.store.getFilePath()) {
-          this.refreshViews();
-        }
-      })
-    );
+    const onBookmarksFileChange = (file) => {
+      if (file instanceof import_obsidian5.TFile && file.path === this.store.getFilePath())
+        this.refreshViews();
+    };
+    this.registerEvent(this.app.vault.on("modify", onBookmarksFileChange));
+    this.registerEvent(this.app.vault.on("create", onBookmarksFileChange));
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         const path = this.store.getFilePath();
@@ -710,23 +693,25 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
       window.clearTimeout(this.refreshRetryTimer);
       this.refreshRetryTimer = null;
     }
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_BOOKMARK);
   }
   // ── Startup ────────────────────────────────────────────────────────────
   async initOnReady() {
     if (this.data.bookmarksFilePath) {
-      await this.ensurePanelOpen();
-      await this.refreshViews();
+      await this.openAndRefresh();
       return;
     }
     const legacyFile = this.app.vault.getAbstractFileByPath(DEFAULT_BOOKMARKS_FILE);
     if (legacyFile instanceof import_obsidian5.TFile) {
       await this.adoptPath(DEFAULT_BOOKMARKS_FILE);
-      await this.ensurePanelOpen();
-      await this.refreshViews();
+      await this.openAndRefresh();
       return;
     }
     this.showSetupModal();
+  }
+  /** Ensures the sidebar panel is open and populated. */
+  async openAndRefresh() {
+    await this.ensurePanelOpen();
+    await this.refreshViews();
   }
   /** Adds the panel to the right sidebar if it is not already there. */
   async ensurePanelOpen() {
@@ -754,11 +739,10 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     this.store.setFilePath(path);
   }
   // ── BookmarkViewHost ───────────────────────────────────────────────────
-  openCaptureModal() {
-    this.store.parse().then((storeData) => {
-      const folderOptions = this.store.getFolderOptions(storeData);
-      new CaptureModal(this.app, this.store, folderOptions).open();
-    });
+  async openCaptureModal() {
+    const storeData = await this.store.parse();
+    const folderOptions = this.store.getFolderOptions(storeData);
+    new CaptureModal(this.app, this.store, folderOptions).open();
   }
   getCollapseState() {
     return this.data.collapseState;
@@ -768,6 +752,10 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     await this.saveData(this.data);
   }
   openBookmarkUrl(url) {
+    if (/[\x00-\x1f\x7f]/.test(url)) {
+      new import_obsidian5.Notice("Launchpad: URL contains invalid characters and was not opened.");
+      return;
+    }
     if (url.startsWith("vault://")) {
       const folderPath = decodeURIComponent(url.slice("vault://".length));
       const folder = this.app.vault.getAbstractFileByPath(folderPath);
@@ -782,15 +770,12 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
           const view = leaves[0].view;
           if (typeof view.revealInFolder === "function") {
             view.revealInFolder(folder);
-          } else {
-            new import_obsidian5.Notice(`Launchpad: ${folderPath}`);
+            return;
           }
         } catch (e) {
-          new import_obsidian5.Notice(`Launchpad: ${folderPath}`);
         }
-      } else {
-        new import_obsidian5.Notice(`Launchpad: ${folderPath}`);
       }
+      new import_obsidian5.Notice(`Launchpad: ${folderPath}`);
     } else if (url.startsWith("note://")) {
       const notePath = url.slice("note://".length);
       const file = this.app.metadataCache.getFirstLinkpathDest(notePath, "");

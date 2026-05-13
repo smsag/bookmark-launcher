@@ -1,6 +1,5 @@
 {
 	"compilerOptions": {
-		"baseUrl": ".",
 		"inlineSourceMap": true,
 		"inlineSources": true,
 		"module": "ESNext",
@@ -8,7 +7,7 @@
 		"allowSyntheticDefaultImports": true,
 		"importHelpers": true,
 		"lib": ["ES6", "DOM"],
-		"moduleResolution": "node",
+		"moduleResolution": "bundler",
 		"strict": true
 	},
 	"include": ["**/*.ts"]

@@ -177,7 +177,7 @@ export class BookmarkStoreManager {
 			for (const sub of folder.subfolders) {
 				// Composite "parent\x1Fchild" value disambiguates subfolders that
 				// share a name across different top-level folders.
-				opts.push(
+				opts.push({
 					label: `  ${sub.name}`,
 					value: `${folder.name}${FOLDER_SEP}${sub.name}`,
 					isSubfolder: true,
