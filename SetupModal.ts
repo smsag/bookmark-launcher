@@ -86,6 +86,9 @@ export class SetupModal extends Modal {
 			if (!v.endsWith(".md")) return "File must end with .md";
 			if (v.startsWith("/")) return "Use a relative path — no leading slash.";
 			if (v.includes("..")) return "Path cannot contain ..";
+			// Block null bytes and other ASCII control characters, which some
+			// file-systems treat specially or which could bypass the checks above.
+			if (/[\x00-\x1f\x7f]/.test(v)) return "Path contains invalid characters.";
 			return "";
 		};
 

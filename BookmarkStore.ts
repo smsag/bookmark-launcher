@@ -3,7 +3,11 @@ import { Bookmark, BookmarkFolder, BookmarkStore, FolderOption } from "./types";
 
 export const DEFAULT_BOOKMARKS_FILE = "bookmarks.md";
 
-const BOOKMARK_RE = /^\s*-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
+// Lazy name (.+?) stops at the first `](` sequence; greedy URL (.+) captures
+// everything up to the last `)` before end-of-line. This correctly handles:
+//   • URLs that contain parentheses (e.g. Wikipedia, query strings)
+//   • Names that contain `]` (e.g. "Stack Overflow [closed]")
+const BOOKMARK_RE = /^\s*-\s+\[(.+?)\]\((.+)\)\s*$/;
 
 // Schemes that are safe to open. Anything else (javascript:, data:, file:, …)
 // is silently dropped at parse time so it never reaches the view layer.
@@ -199,6 +203,13 @@ export class BookmarkStoreManager {
 	): Promise<void> {
 		if (this.writing) return;
 		this.writing = true;
+
+		// Sanitize at the write boundary: strip control characters (including
+		// newlines and null bytes) that could inject extra Markdown structure
+		// into bookmarks.md when serialized.
+		const stripCtrl = (s: string) => s.replace(/[\x00-\x1f\x7f]/g, " ").trim();
+		bookmark = { name: stripCtrl(bookmark.name), url: bookmark.url.replace(/[\x00-\x1f\x7f]/g, "").trim() };
+		targetFolderName = stripCtrl(targetFolderName);
 		try {
 			const f = await this.ensureFile();
 			// Re-read before writing to respect external edits

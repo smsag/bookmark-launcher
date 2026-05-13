@@ -204,6 +204,15 @@ export default class LaunchpadPlugin
 		// Allowlist URL schemes — reject anything not explicitly safe.
 		// bookmarks.md is user-editable plain text; without this guard a
 		// javascript: URI would execute in Obsidian's Electron renderer.
+
+		// Shared pre-flight: reject any URL containing control characters
+		// (including newlines / null bytes). These can corrupt window.open
+		// behaviour in some Electron versions regardless of scheme.
+		if (/[\x00-\x1f\x7f]/.test(url)) {
+			new Notice("Launchpad: URL contains invalid characters and was not opened.");
+			return;
+		}
+
 		if (url.startsWith("vault://")) {
 			const folderPath = decodeURIComponent(url.slice("vault://".length));
 			const folder = this.app.vault.getAbstractFileByPath(folderPath);
