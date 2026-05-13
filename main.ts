@@ -77,6 +77,17 @@ export default class LaunchpadPlugin
 			})
 		);
 
+		// Fix-C: iCloud can replace a stub with the real file via a rename rather
+		// than a modify, which the modify/create watchers would miss entirely.
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				const path = this.store.getFilePath();
+				if (file instanceof TFile && (file.path === path || oldPath === path)) {
+					this.refreshViews();
+				}
+			})
+		);
+
 		// Add "Copy path for Launchpad" to the folder context menu, grouped
 		// with Obsidian's native "Copy path" item (section "info").
 		this.registerEvent(

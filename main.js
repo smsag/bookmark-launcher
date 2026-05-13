@@ -89,6 +89,11 @@ var BookmarkStoreManager = class {
     if (!f)
       return { folders: [], uncategorized: [] };
     const content = await this.app.vault.read(f);
+    if (content === "" && f.stat.size > 0) {
+      throw new Error(
+        `Launchpad: empty read for "${this.filePath}" (size=${f.stat.size}) \u2014 likely iCloud not yet hydrated`
+      );
+    }
     return this.parseContent(content);
   }
   parseContent(content) {
@@ -676,6 +681,14 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     this.registerEvent(
       this.app.vault.on("create", (file) => {
         if (file instanceof import_obsidian5.TFile && file.path === this.store.getFilePath()) {
+          this.refreshViews();
+        }
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        const path = this.store.getFilePath();
+        if (file instanceof import_obsidian5.TFile && (file.path === path || oldPath === path)) {
           this.refreshViews();
         }
       })

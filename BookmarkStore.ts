@@ -83,6 +83,15 @@ export class BookmarkStoreManager {
 		const f = this.getFile();
 		if (!f) return { folders: [], uncategorized: [] };
 		const content = await this.app.vault.read(f);
+		// Fix-A: vault.read() returns "" (not a throw) when iCloud hasn't hydrated
+		// the file yet, even when marked as "Download and Keep". If the file has a
+		// known non-zero size but we got empty content, treat it as a read failure
+		// so the exponential-backoff retry in refreshViews() kicks in.
+		if (content === "" && f.stat.size > 0) {
+			throw new Error(
+				`Launchpad: empty read for "${this.filePath}" (size=${f.stat.size}) — likely iCloud not yet hydrated`
+			);
+		}
 		return this.parseContent(content);
 	}
 
