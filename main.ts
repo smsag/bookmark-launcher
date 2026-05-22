@@ -173,6 +173,14 @@ export default class LaunchpadPlugin
 		this.showSetupModal();
 	}
 
+	/** Opens Obsidian's settings modal on this plugin's settings tab. */
+	openSettings(): void {
+		// @ts-ignore — app.setting is not typed in the public Obsidian API
+		this.app.setting.open();
+		// @ts-ignore
+		this.app.setting.openTabById(this.manifest.id);
+	}
+
 	/** Persist a confirmed bookmarks file path and point the store at it. */
 	private async adoptPath(path: string): Promise<void> {
 		this.data.bookmarksFilePath = path;

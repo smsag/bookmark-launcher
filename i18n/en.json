@@ -1,0 +1,23 @@
+{
+  "panel.title": "Navigator",
+  "panel.empty": "No bookmarks yet. Press + to add one, or edit your bookmarks file directly.",
+  "panel.loading": "Loading…",
+  "bookmark.add": "Add bookmark",
+  "bookmark.settings": "Launchpad settings",
+  "modal.heading": "Add bookmark",
+  "modal.name.label": "Display name",
+  "modal.name.placeholder": "e.g. Linear Board",
+  "modal.name.error": "Name is required.",
+  "modal.url.label": "URL",
+  "modal.url.placeholder": "https://, obsidian://, vault://, note://, or [[note name]]",
+  "modal.url.error": "URL must start with https://, http://, obsidian://, vault://, note://, or be [[note name]]",
+  "modal.folder.label": "Target folder",
+  "modal.folder.new": "+ New folder…",
+  "modal.folder.uncategorized": "Uncategorized",
+  "modal.newFolder.label": "New folder name",
+  "modal.newFolder.placeholder": "Folder name",
+  "modal.save": "Save",
+  "modal.cancel": "Cancel",
+  "modal.saveError": "Failed to save. Please try again.",
+  "back.ariaLabel": "Go back to"
+}

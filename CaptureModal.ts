@@ -1,6 +1,7 @@
 import { App, Modal, Setting } from "obsidian";
 import { Bookmark, FolderOption } from "./types";
 import { BookmarkStoreManager } from "./BookmarkStore";
+import { t } from "./i18n";
 
 const NEW_FOLDER_VALUE = "__new__";
 const UNCATEGORIZED_VALUE = "__uncategorized__";
@@ -32,7 +33,7 @@ export class CaptureModal extends Modal {
 		// Query folder options at open time so newly added folders appear.
 		const folderOptions = this.getFolderOptions();
 		contentEl.addClass("launchpad-capture-modal");
-		new Setting(contentEl).setName("Add bookmark").setHeading();
+		new Setting(contentEl).setName(t("modal.heading")).setHeading();
 
 		let nameValue = "";
 		let urlValue = "";
@@ -42,13 +43,13 @@ export class CaptureModal extends Modal {
 
 		// --- Display Name ---
 		const nameField = contentEl.createDiv("launchpad-capture-field");
-		const nameLbl = nameField.createEl("label", { text: "Display name" });
+		const nameLbl = nameField.createEl("label", { text: t("modal.name.label") });
 		nameLbl.setAttribute("for", "lp-cm-name");
 		const nameInput = nameField.createEl("input", {
 			attr: {
 				id: "lp-cm-name",
 				type: "text",
-				placeholder: "e.g. Linear Board",
+				placeholder: t("modal.name.placeholder"),
 				"aria-describedby": "lp-cm-name-err",
 			},
 		});
@@ -62,13 +63,13 @@ export class CaptureModal extends Modal {
 
 		// --- URL ---
 		const urlField = contentEl.createDiv("launchpad-capture-field");
-		const urlLbl = urlField.createEl("label", { text: "URL" });
+		const urlLbl = urlField.createEl("label", { text: t("modal.url.label") });
 		urlLbl.setAttribute("for", "lp-cm-url");
 		const urlInput = urlField.createEl("input", {
 			attr: {
 				id: "lp-cm-url",
 				type: "text",
-				placeholder: "https://, obsidian://, vault://, note://, or [[note name]]",
+				placeholder: t("modal.url.placeholder"),
 				"aria-describedby": "lp-cm-url-err",
 			},
 		});
@@ -80,7 +81,7 @@ export class CaptureModal extends Modal {
 
 		// --- Target folder ---
 		const folderField = contentEl.createDiv("launchpad-capture-field");
-		const folderLbl = folderField.createEl("label", { text: "Target folder" });
+		const folderLbl = folderField.createEl("label", { text: t("modal.folder.label") });
 		folderLbl.setAttribute("for", "lp-cm-folder");
 		const folderSelect = folderField.createEl("select", {
 			attr: { id: "lp-cm-folder" },
@@ -88,7 +89,7 @@ export class CaptureModal extends Modal {
 
 		if (folderOptions.length === 0) {
 			const opt = folderSelect.createEl("option", {
-				text: "Uncategorized",
+				text: t("modal.folder.uncategorized"),
 				attr: { value: UNCATEGORIZED_VALUE },
 			});
 			opt.selected = true;
@@ -101,16 +102,16 @@ export class CaptureModal extends Modal {
 			}
 		}
 		folderSelect.createEl("option", {
-			text: "+ New folder…",
+			text: t("modal.folder.new"),
 			attr: { value: NEW_FOLDER_VALUE },
 		});
 
 		// --- New folder name (hidden until selected) ---
 		const newFolderField = contentEl.createDiv("launchpad-capture-field launchpad-hidden");
-		const newFolderLbl = newFolderField.createEl("label", { text: "New folder name" });
+		const newFolderLbl = newFolderField.createEl("label", { text: t("modal.newFolder.label") });
 		newFolderLbl.setAttribute("for", "lp-cm-new-folder");
 		const newFolderInput = newFolderField.createEl("input", {
-			attr: { id: "lp-cm-new-folder", type: "text", placeholder: "Folder name" },
+			attr: { id: "lp-cm-new-folder", type: "text", placeholder: t("modal.newFolder.placeholder") },
 		});
 
 		folderSelect.addEventListener("change", () => {
@@ -126,10 +127,10 @@ export class CaptureModal extends Modal {
 
 		// --- Actions ---
 		const actions = contentEl.createDiv("launchpad-capture-actions");
-		const cancelBtn = actions.createEl("button", { text: "Cancel" });
+		const cancelBtn = actions.createEl("button", { text: t("modal.cancel") });
 		const saveBtn = actions.createEl("button", {
 			cls: "mod-cta",
-			text: "Save",
+			text: t("modal.save"),
 		});
 		// Keep save errors inline so iOS write failures don't look like freezes.
 		const saveErrorEl = contentEl.createDiv({
@@ -151,7 +152,7 @@ export class CaptureModal extends Modal {
 		nameInput.addEventListener("input", () => {
 			nameValue = nameInput.value;
 			nameErrorEl.textContent =
-				nameValue.trim().length === 0 ? "Name is required." : "";
+				nameValue.trim().length === 0 ? t("modal.name.error") : "";
 			updateSaveBtn();
 		});
 
@@ -161,7 +162,7 @@ export class CaptureModal extends Modal {
 				|| isWikiLink(urlValue.trim());
 			urlErrorEl.textContent = valid
 				? ""
-				: "URL must start with https://, http://, obsidian://, vault://, note://, or be [[note name]]";
+				: t("modal.url.error");
 			updateSaveBtn();
 		});
 
@@ -197,7 +198,7 @@ export class CaptureModal extends Modal {
 			} catch (err) {
 				saveBtn.disabled = false;
 				console.error("Launchpad: failed to save bookmark", err);
-				saveErrorEl.textContent = "Failed to save. Please try again.";
+				saveErrorEl.textContent = t("modal.saveError");
 			}
 		});
 

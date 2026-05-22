@@ -1,0 +1,23 @@
+{
+  "panel.title": "Navigator",
+  "panel.empty": "Noch keine Lesezeichen. Drücke + um eines hinzuzufügen oder bearbeite die Lesezeichen-Datei direkt.",
+  "panel.loading": "Wird geladen…",
+  "bookmark.add": "Lesezeichen hinzufügen",
+  "bookmark.settings": "Launchpad-Einstellungen",
+  "modal.heading": "Lesezeichen hinzufügen",
+  "modal.name.label": "Anzeigename",
+  "modal.name.placeholder": "z. B. Linear Board",
+  "modal.name.error": "Name ist erforderlich.",
+  "modal.url.label": "URL",
+  "modal.url.placeholder": "https://, obsidian://, vault://, note://, oder [[Notiztitel]]",
+  "modal.url.error": "URL muss mit https://, http://, obsidian://, vault://, note:// beginnen oder [[Notiztitel]] sein.",
+  "modal.folder.label": "Zielordner",
+  "modal.folder.new": "+ Neuer Ordner…",
+  "modal.folder.uncategorized": "Ohne Kategorie",
+  "modal.newFolder.label": "Name des neuen Ordners",
+  "modal.newFolder.placeholder": "Ordnername",
+  "modal.save": "Speichern",
+  "modal.cancel": "Abbrechen",
+  "modal.saveError": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+  "back.ariaLabel": "Zurück zu"
+}

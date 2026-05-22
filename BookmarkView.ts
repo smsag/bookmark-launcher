@@ -1,6 +1,7 @@
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import { BookmarkFolder, BookmarkStore } from "./types";
 import { FOLDER_SEP } from "./BookmarkStore";
+import { t } from "./i18n";
 
 export const VIEW_TYPE_BOOKMARK = "launchpad-view";
 
@@ -8,6 +9,8 @@ export interface BookmarkViewHost {
 	openCaptureModal(): Promise<void>;
 	/** Open the setup modal to change the bookmarks file path. */
 	openSetupModal(): void;
+	/** Open the plugin settings tab in Obsidian's settings modal. */
+	openSettings(): void;
 	getCollapseState(): Record<string, boolean>;
 	setCollapseState(key: string, collapsed: boolean): Promise<void>;
 	/** Open a bookmark URL; captures the active file for obsidian:// links. */
@@ -36,7 +39,7 @@ export class BookmarkView extends ItemView {
 	}
 
 	getIcon(): string {
-		return "bookmark";
+		return "rocket";
 	}
 
 	async onOpen(): Promise<void> {
@@ -53,7 +56,7 @@ export class BookmarkView extends ItemView {
 			// iOS/iCloud parse retries can take seconds; show explicit loading
 			// instead of the empty-state message to avoid false data-loss signals.
 			this.contentEl.empty();
-			this.contentEl.createDiv({ cls: "launchpad-loading", text: "Loading…" });
+			this.contentEl.createDiv({ cls: "launchpad-loading", text: t("panel.loading") });
 		}
 		// if false: caller will immediately follow with setStore(), which re-renders
 	}
@@ -68,20 +71,20 @@ export class BookmarkView extends ItemView {
 		container.setAttribute("aria-label", "Launchpad");
 
 		const header = container.createDiv("launchpad-header");
-		header.createSpan({ text: "Bookmarks" });
+		header.createSpan({ text: t("panel.title") });
 		const addBtn = header.createEl("button", {
 			cls: "launchpad-add-btn",
-			text: "+",
-			attr: { "aria-label": "Add bookmark" },
+			attr: { "aria-label": t("bookmark.add"), type: "button" },
 		});
+		setIcon(addBtn, "plus-circle");
 		addBtn.addEventListener("click", () => this.host.openCaptureModal());
 
 		const settingsBtn = header.createEl("button", {
 			cls: "launchpad-settings-btn",
-			attr: { "aria-label": "Change bookmarks file" },
+			attr: { "aria-label": t("bookmark.settings"), type: "button" },
 		});
-		setIcon(settingsBtn, "settings");
-		settingsBtn.addEventListener("click", () => this.host.openSetupModal());
+		setIcon(settingsBtn, "settings-2");
+		settingsBtn.addEventListener("click", () => this.host.openSettings());
 
 		// Scrollable content area
 		const scrollEl = container.createDiv("launchpad-scroll");
@@ -105,7 +108,7 @@ export class BookmarkView extends ItemView {
 		) {
 			scrollEl.createDiv({
 				cls: "launchpad-empty",
-				text: 'No bookmarks yet. Press + to add one, or edit your bookmarks file directly.',
+				text: t("panel.empty"),
 			});
 		}
 
@@ -115,7 +118,7 @@ export class BookmarkView extends ItemView {
 			const backSection = container.createDiv("launchpad-back-section");
 			const backLink = backSection.createEl("a", {
 				cls: "launchpad-back-item",
-				attr: { href: "#", title: `Go back to ${previousFilename}` },
+				attr: { href: "#", title: `${t("back.ariaLabel")} ${previousFilename}` },
 			});
 			const backIconEl = backLink.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
 			setIcon(backIconEl, "arrow-left");
