@@ -539,7 +539,14 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       cls: isNote ? "lp-item-icon lp-item-icon--note" : isVault ? "lp-item-icon lp-item-icon--vault" : isObsidian ? "lp-item-icon lp-item-icon--obsidian" : "lp-item-icon",
       attr: { "aria-hidden": "true" }
     });
-    (0, import_obsidian2.setIcon)(itemIconEl, isNote || isVault || isObsidian ? "file-text" : "globe");
+    const iconName = isNote || isObsidian ? "file-text" : (
+      // file/note navigation
+      isVault ? "library" : (
+        // folder navigation
+        "globe"
+      )
+    );
+    (0, import_obsidian2.setIcon)(itemIconEl, iconName);
     item.createSpan({ cls: "lp-item-name", text: name });
     item.addEventListener("click", (e) => {
       e.preventDefault();

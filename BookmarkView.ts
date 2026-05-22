@@ -296,7 +296,11 @@ export class BookmarkView extends ItemView {
 				: "lp-item-icon",
 			attr: { "aria-hidden": "true" },
 		});
-		setIcon(itemIconEl, isNote || isVault || isObsidian ? "file-text" : "globe");
+		const iconName =
+			isNote || isObsidian ? "file-text" :   // file/note navigation
+			isVault              ? "library"   :   // folder navigation
+			                       "globe";        // external web link
+		setIcon(itemIconEl, iconName);
 		item.createSpan({ cls: "lp-item-name", text: name });
 		item.addEventListener("click", (e) => {
 			e.preventDefault();
