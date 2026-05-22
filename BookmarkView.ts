@@ -76,19 +76,19 @@ export class BookmarkView extends ItemView {
 
 		const header = container.createDiv("launchpad-header");
 		header.createSpan({ text: t("panel.title") });
-		const addBtn = header.createEl("button", {
-			cls: "launchpad-add-btn",
-			attr: { "aria-label": t("bookmark.add"), type: "button" },
-		});
-		setIcon(addBtn, "plus-circle");
-		addBtn.addEventListener("click", () => this.host.openCaptureModal());
-
 		const settingsBtn = header.createEl("button", {
 			cls: "launchpad-settings-btn",
 			attr: { "aria-label": t("bookmark.settings"), type: "button" },
 		});
 		setIcon(settingsBtn, "settings-2");
 		settingsBtn.addEventListener("click", () => this.host.openSettings());
+
+		const addBtn = header.createEl("button", {
+			cls: "launchpad-add-btn",
+			attr: { "aria-label": t("bookmark.add"), type: "button" },
+		});
+		setIcon(addBtn, "plus-circle");
+		addBtn.addEventListener("click", () => this.host.openCaptureModal());
 
 		// Scrollable content area
 		const scrollEl = container.createDiv("launchpad-scroll");
@@ -134,7 +134,7 @@ export class BookmarkView extends ItemView {
 			cls: "lp-folder-icon",
 			attr: { "aria-hidden": "true" },
 		});
-		setIcon(tabsIconEl, "panel-top-open");
+		setIcon(tabsIconEl, "layout-grid");
 		tabsHeaderEl.createSpan({ text: t("tabs.folder") });
 		const tabsArrow = tabsHeaderEl.createSpan({
 			cls: "launchpad-folder-arrow" + (tabsCollapsed ? " collapsed" : ""),
