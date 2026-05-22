@@ -19,23 +19,25 @@ function normalizeUrl(val: string): string {
 
 export class CaptureModal extends Modal {
 	private store: BookmarkStoreManager;
-	private folderOptions: FolderOption[];
+	private getFolderOptions: () => FolderOption[];
 
-	constructor(app: App, store: BookmarkStoreManager, folderOptions: FolderOption[]) {
+	constructor(app: App, store: BookmarkStoreManager, getFolderOptions: () => FolderOption[]) {
 		super(app);
 		this.store = store;
-		this.folderOptions = folderOptions;
+		this.getFolderOptions = getFolderOptions;
 	}
 
 	onOpen(): void {
 		const { contentEl } = this;
+		// Query folder options at open time so newly added folders appear.
+		const folderOptions = this.getFolderOptions();
 		contentEl.addClass("launchpad-capture-modal");
 		new Setting(contentEl).setName("Add bookmark").setHeading();
 
 		let nameValue = "";
 		let urlValue = "";
 		let folderValue =
-			this.folderOptions.length > 0 ? this.folderOptions[0].value : UNCATEGORIZED_VALUE;
+			folderOptions.length > 0 ? folderOptions[0].value : UNCATEGORIZED_VALUE;
 		let newFolderValue = "";
 
 		// --- Display Name ---
@@ -84,14 +86,14 @@ export class CaptureModal extends Modal {
 			attr: { id: "lp-cm-folder" },
 		});
 
-		if (this.folderOptions.length === 0) {
+		if (folderOptions.length === 0) {
 			const opt = folderSelect.createEl("option", {
 				text: "Uncategorized",
 				attr: { value: UNCATEGORIZED_VALUE },
 			});
 			opt.selected = true;
 		} else {
-			for (const opt of this.folderOptions) {
+			for (const opt of folderOptions) {
 				folderSelect.createEl("option", {
 					text: opt.label,
 					attr: { value: opt.value },
@@ -129,6 +131,12 @@ export class CaptureModal extends Modal {
 			cls: "mod-cta",
 			text: "Save",
 		});
+		// Keep save errors inline so iOS write failures don't look like freezes.
+		const saveErrorEl = contentEl.createDiv({
+			cls: "launchpad-capture-error",
+			text: "",
+			attr: { "aria-live": "polite" },
+		});
 
 		const updateSaveBtn = () => {
 			const nameOk = nameValue.trim().length > 0;
@@ -160,10 +168,9 @@ export class CaptureModal extends Modal {
 		cancelBtn.addEventListener("click", () => this.close());
 
 		saveBtn.addEventListener("click", async () => {
-			// Disable immediately to prevent double-submit before the async
-			// write completes.
 			if (saveBtn.disabled) return;
 			saveBtn.disabled = true;
+			saveErrorEl.textContent = "";
 
 			const name = nameValue.trim();
 			const url = normalizeUrl(urlValue.trim());
@@ -183,9 +190,15 @@ export class CaptureModal extends Modal {
 				return;
 			}
 
-			const bm: Bookmark = { name, url };
-			await this.store.addBookmark(bm, targetFolder, isNew);
-			this.close();
+			try {
+				const bm: Bookmark = { name, url };
+				await this.store.addBookmark(bm, targetFolder, isNew);
+				this.close();
+			} catch (err) {
+				saveBtn.disabled = false;
+				console.error("Launchpad: failed to save bookmark", err);
+				saveErrorEl.textContent = "Failed to save. Please try again.";
+			}
 		});
 
 		updateSaveBtn();

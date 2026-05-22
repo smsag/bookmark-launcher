@@ -36,6 +36,9 @@ var DEFAULT_BOOKMARKS_FILE = "bookmarks.md";
 var BOOKMARK_RE = /^\s*-\s+\[(.+?)\]\((.+)\)\s*$/;
 var ALLOWED_SCHEMES = ["https://", "http://", "obsidian://", "vault://", "note://"];
 var FOLDER_SEP = "";
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 function stripCtrl(s) {
   return s.replace(/[\x00-\x1f\x7f]/g, " ").trim();
 }
@@ -51,6 +54,8 @@ var BookmarkStoreManager = class {
     this.filePath = path;
   }
   getFile() {
+    if (!this.app.metadataCache)
+      return null;
     const f = this.app.vault.getAbstractFileByPath(this.filePath);
     return f instanceof import_obsidian.TFile ? f : null;
   }
@@ -74,6 +79,16 @@ var BookmarkStoreManager = class {
   async ensureFile() {
     let f = this.getFile();
     if (!f) {
+      try {
+        const stat = await this.app.vault.adapter.stat(this.filePath);
+        if (stat && stat.size > 0) {
+          await sleep(600);
+          f = this.getFile();
+        }
+      } catch (e) {
+      }
+    }
+    if (!f) {
       await this.ensureParentFolders();
       await this.app.vault.create(this.filePath, "");
       f = this.getFile();
@@ -86,16 +101,27 @@ var BookmarkStoreManager = class {
     return f;
   }
   async parse() {
-    const f = this.getFile();
-    if (!f)
-      return { folders: [], uncategorized: [] };
-    const content = await this.app.vault.read(f);
-    if (content === "" && f.stat.size > 0) {
-      throw new Error(
-        `Launchpad: empty read for "${this.filePath}" (size=${f.stat.size}) \u2014 likely iCloud not yet hydrated`
-      );
+    const maxAttempts = 5;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const f = this.getFile();
+      if (!f) {
+        if (attempt < maxAttempts - 1) {
+          await sleep(300 * Math.pow(2, attempt));
+          continue;
+        }
+        return { folders: [], uncategorized: [] };
+      }
+      const content = await this.app.vault.read(f);
+      if (content === "" && f.stat.size > 0) {
+        if (attempt < maxAttempts - 1) {
+          await sleep(300 * Math.pow(2, attempt));
+          continue;
+        }
+        return { folders: [], uncategorized: [] };
+      }
+      return this.parseContent(content);
     }
-    return this.parseContent(content);
+    return { folders: [], uncategorized: [] };
   }
   parseContent(content) {
     const lines = content.split("\n");
@@ -255,6 +281,12 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     this.store = store;
     this.render();
   }
+  setLoading(isLoading) {
+    if (isLoading) {
+      this.contentEl.empty();
+      this.contentEl.createDiv({ cls: "launchpad-loading", text: "Loading\u2026" });
+    }
+  }
   render() {
     this.contentEl.empty();
     this.contentEl.addClass("launchpad-content-el");
@@ -379,18 +411,19 @@ function normalizeUrl(val) {
   return val;
 }
 var CaptureModal = class extends import_obsidian3.Modal {
-  constructor(app, store, folderOptions) {
+  constructor(app, store, getFolderOptions) {
     super(app);
     this.store = store;
-    this.folderOptions = folderOptions;
+    this.getFolderOptions = getFolderOptions;
   }
   onOpen() {
     const { contentEl } = this;
+    const folderOptions = this.getFolderOptions();
     contentEl.addClass("launchpad-capture-modal");
     new import_obsidian3.Setting(contentEl).setName("Add bookmark").setHeading();
     let nameValue = "";
     let urlValue = "";
-    let folderValue = this.folderOptions.length > 0 ? this.folderOptions[0].value : UNCATEGORIZED_VALUE;
+    let folderValue = folderOptions.length > 0 ? folderOptions[0].value : UNCATEGORIZED_VALUE;
     let newFolderValue = "";
     const nameField = contentEl.createDiv("launchpad-capture-field");
     const nameLbl = nameField.createEl("label", { text: "Display name" });
@@ -430,14 +463,14 @@ var CaptureModal = class extends import_obsidian3.Modal {
     const folderSelect = folderField.createEl("select", {
       attr: { id: "lp-cm-folder" }
     });
-    if (this.folderOptions.length === 0) {
+    if (folderOptions.length === 0) {
       const opt = folderSelect.createEl("option", {
         text: "Uncategorized",
         attr: { value: UNCATEGORIZED_VALUE }
       });
       opt.selected = true;
     } else {
-      for (const opt of this.folderOptions) {
+      for (const opt of folderOptions) {
         folderSelect.createEl("option", {
           text: opt.label,
           attr: { value: opt.value }
@@ -469,6 +502,11 @@ var CaptureModal = class extends import_obsidian3.Modal {
       cls: "mod-cta",
       text: "Save"
     });
+    const saveErrorEl = contentEl.createDiv({
+      cls: "launchpad-capture-error",
+      text: "",
+      attr: { "aria-live": "polite" }
+    });
     const updateSaveBtn = () => {
       const nameOk = nameValue.trim().length > 0;
       const urlOk = URL_PREFIXES.some((p) => urlValue.trim().startsWith(p)) || isWikiLink(urlValue.trim());
@@ -491,6 +529,7 @@ var CaptureModal = class extends import_obsidian3.Modal {
       if (saveBtn.disabled)
         return;
       saveBtn.disabled = true;
+      saveErrorEl.textContent = "";
       const name = nameValue.trim();
       const url = normalizeUrl(urlValue.trim());
       const isNew = folderValue === NEW_FOLDER_VALUE;
@@ -503,9 +542,15 @@ var CaptureModal = class extends import_obsidian3.Modal {
         saveBtn.disabled = false;
         return;
       }
-      const bm = { name, url };
-      await this.store.addBookmark(bm, targetFolder, isNew);
-      this.close();
+      try {
+        const bm = { name, url };
+        await this.store.addBookmark(bm, targetFolder, isNew);
+        this.close();
+      } catch (err) {
+        saveBtn.disabled = false;
+        console.error("Launchpad: failed to save bookmark", err);
+        saveErrorEl.textContent = "Failed to save. Please try again.";
+      }
     });
     updateSaveBtn();
     const handleKeydown = (e) => {
@@ -662,12 +707,16 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
       name: "Configure bookmarks file location",
       callback: () => this.showSetupModal()
     });
-    const onBookmarksFileChange = (file) => {
+    const onBookmarksFileModify = (file) => {
       if (file instanceof import_obsidian5.TFile && file.path === this.store.getFilePath())
         this.refreshViews();
     };
-    this.registerEvent(this.app.vault.on("modify", onBookmarksFileChange));
-    this.registerEvent(this.app.vault.on("create", onBookmarksFileChange));
+    this.registerEvent(this.app.vault.on("modify", onBookmarksFileModify));
+    const onBookmarksFileCreate = (file) => {
+      if (file instanceof import_obsidian5.TFile && file.path === this.store.getFilePath())
+        this.refreshViews();
+    };
+    this.registerEvent(this.app.vault.on("create", onBookmarksFileCreate));
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         const path = this.store.getFilePath();
@@ -741,8 +790,11 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   // ── BookmarkViewHost ───────────────────────────────────────────────────
   async openCaptureModal() {
     const storeData = await this.store.parse();
-    const folderOptions = this.store.getFolderOptions(storeData);
-    new CaptureModal(this.app, this.store, folderOptions).open();
+    new CaptureModal(
+      this.app,
+      this.store,
+      () => this.store.getFolderOptions(storeData)
+    ).open();
   }
   getCollapseState() {
     return this.data.collapseState;
@@ -829,6 +881,11 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
     if (leaves.length === 0)
       return;
+    for (const leaf of leaves) {
+      if (leaf.view instanceof BookmarkView) {
+        leaf.view.setLoading(true);
+      }
+    }
     let storeData;
     try {
       storeData = await this.store.parse();

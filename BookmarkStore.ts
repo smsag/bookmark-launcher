@@ -19,6 +19,10 @@ const ALLOWED_SCHEMES = ["https://", "http://", "obsidian://", "vault://", "note
 // names themselves contain slashes or other punctuation.
 export const FOLDER_SEP = "\x1F";
 
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function stripCtrl(s: string): string {
 	return s.replace(/[\x00-\x1f\x7f]/g, " ").trim();
 }
@@ -41,6 +45,8 @@ export class BookmarkStoreManager {
 	}
 
 	private getFile(): TFile | null {
+		// iOS can briefly report an unready vault index during iCloud startup.
+		if (!this.app.metadataCache) return null;
 		const f = this.app.vault.getAbstractFileByPath(this.filePath);
 		return f instanceof TFile ? f : null;
 	}
@@ -67,6 +73,19 @@ export class BookmarkStoreManager {
 	async ensureFile(): Promise<TFile> {
 		let f = this.getFile();
 		if (!f) {
+			// Check raw adapter stat before creating — size > 0 suggests iCloud
+			// has content that is not indexed yet, so wait briefly first.
+			try {
+				const stat = await this.app.vault.adapter.stat(this.filePath);
+				if (stat && stat.size > 0) {
+					await sleep(600);
+					f = this.getFile();
+				}
+			} catch {
+				// stat failed — file genuinely absent, proceed to create
+			}
+		}
+		if (!f) {
 			await this.ensureParentFolders();
 			await this.app.vault.create(this.filePath, "");
 			f = this.getFile();
@@ -81,18 +100,36 @@ export class BookmarkStoreManager {
 	}
 
 	async parse(): Promise<BookmarkStore> {
-		const f = this.getFile();
-		if (!f) return { folders: [], uncategorized: [] };
-		const content = await this.app.vault.read(f);
-		// vault.read() returns "" (not a throw) when iCloud hasn't hydrated the
-		// file yet. Treat an unexpectedly empty file as a read failure so the
-		// exponential-backoff retry in refreshViews() kicks in.
-		if (content === "" && f.stat.size > 0) {
-			throw new Error(
-				`Launchpad: empty read for "${this.filePath}" (size=${f.stat.size}) — likely iCloud not yet hydrated`
-			);
+		const maxAttempts = 5;
+
+		for (let attempt = 0; attempt < maxAttempts; attempt++) {
+			const f = this.getFile();
+			if (!f) {
+				// iOS/iCloud indexing can lag briefly; retry before treating as empty.
+				// exponential backoff: 300ms, 600ms, 1200ms, 2400ms
+				if (attempt < maxAttempts - 1) {
+					await sleep(300 * Math.pow(2, attempt));
+					continue;
+				}
+				return { folders: [], uncategorized: [] };
+			}
+
+			const content = await this.app.vault.read(f);
+			// vault.read() returns "" (not a throw) when iCloud hasn't hydrated the
+			// file yet. Retry with backoff so iOS has time to hydrate before we
+			// fall back to an empty in-memory store.
+			if (content === "" && f.stat.size > 0) {
+				if (attempt < maxAttempts - 1) {
+					await sleep(300 * Math.pow(2, attempt));
+					continue;
+				}
+				return { folders: [], uncategorized: [] };
+			}
+
+			return this.parseContent(content);
 		}
-		return this.parseContent(content);
+
+		return { folders: [], uncategorized: [] };
 	}
 
 	parseContent(content: string): BookmarkStore {

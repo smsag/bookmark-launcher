@@ -46,6 +46,16 @@ export class BookmarkView extends ItemView {
 		this.render();
 	}
 
+	setLoading(isLoading: boolean): void {
+		if (isLoading) {
+			// iOS/iCloud parse retries can take seconds; show explicit loading
+			// instead of the empty-state message to avoid false data-loss signals.
+			this.contentEl.empty();
+			this.contentEl.createDiv({ cls: "launchpad-loading", text: "Loading…" });
+		}
+		// if false: caller will immediately follow with setStore(), which re-renders
+	}
+
 	private render(): void {
 		// A child div is required — height: 100% on contentEl itself doesn't
 		// resolve correctly against a flex-determined parent.

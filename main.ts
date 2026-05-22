@@ -58,13 +58,20 @@ export default class LaunchpadPlugin
 			callback: () => this.showSetupModal(),
 		});
 
-		// Re-render sidebar whenever the bookmarks file changes.
-		const onBookmarksFileChange = (file: TAbstractFile) => {
+		// iOS iCloud hydration often surfaces as a modify event on the target
+		// file, so keep a scoped modify watcher to refresh the panel promptly.
+		const onBookmarksFileModify = (file: TAbstractFile) => {
 			if (file instanceof TFile && file.path === this.store.getFilePath())
 				this.refreshViews();
 		};
-		this.registerEvent(this.app.vault.on("modify", onBookmarksFileChange));
-		this.registerEvent(this.app.vault.on("create", onBookmarksFileChange));
+		this.registerEvent(this.app.vault.on("modify", onBookmarksFileModify));
+
+		// Keep create handling too, since first-run setup can create the file.
+		const onBookmarksFileCreate = (file: TAbstractFile) => {
+			if (file instanceof TFile && file.path === this.store.getFilePath())
+				this.refreshViews();
+		};
+		this.registerEvent(this.app.vault.on("create", onBookmarksFileCreate));
 
 		// iCloud can replace a stub with the real file via a rename, which
 		// modify/create watchers would miss.
@@ -166,8 +173,13 @@ export default class LaunchpadPlugin
 
 	async openCaptureModal(): Promise<void> {
 		const storeData = await this.store.parse();
-		const folderOptions = this.store.getFolderOptions(storeData);
-		new CaptureModal(this.app, this.store, folderOptions).open();
+		// Provide folder options via callback so CaptureModal resolves them
+		// at open time rather than storing a long-lived snapshot.
+		new CaptureModal(
+			this.app,
+			this.store,
+			() => this.store.getFolderOptions(storeData)
+		).open();
 	}
 
 	getCollapseState(): Record<string, boolean> {
@@ -278,6 +290,13 @@ export default class LaunchpadPlugin
 	private async refreshViews(retryCount = 0): Promise<void> {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
 		if (leaves.length === 0) return;
+		// While iOS/iCloud hydration retries are in progress, render a loading
+		// state instead of a misleading empty-store message.
+		for (const leaf of leaves) {
+			if (leaf.view instanceof BookmarkView) {
+				leaf.view.setLoading(true);
+			}
+		}
 		let storeData;
 		try {
 			storeData = await this.store.parse();
