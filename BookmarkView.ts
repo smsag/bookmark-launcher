@@ -288,13 +288,15 @@ export class BookmarkView extends ItemView {
 		});
 		const isVault = url.startsWith("vault://");
 		const isNote = url.startsWith("note://");
+		const isObsidian = url.startsWith("obsidian://");
 		const itemIconEl = item.createSpan({
 			cls: isNote ? "lp-item-icon lp-item-icon--note"
 				: isVault ? "lp-item-icon lp-item-icon--vault"
+				: isObsidian ? "lp-item-icon lp-item-icon--obsidian"
 				: "lp-item-icon",
 			attr: { "aria-hidden": "true" },
 		});
-		setIcon(itemIconEl, isNote ? "file-text" : isVault ? "library" : "globe");
+		setIcon(itemIconEl, isNote || isVault || isObsidian ? "file-text" : "globe");
 		item.createSpan({ cls: "lp-item-name", text: name });
 		item.addEventListener("click", (e) => {
 			e.preventDefault();

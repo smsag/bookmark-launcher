@@ -26,6 +26,8 @@ export default class LaunchpadPlugin
 	private previousFile: TFile | null = null;
 	/** Pending exponential-backoff retry for refreshViews when iCloud read fails. */
 	private refreshRetryTimer: number | null = null;
+	/** Debounce timer for workspace-event-triggered refreshes. */
+	private refreshDebounceTimer: number | null = null;
 
 	async onload(): Promise<void> {
 		this.data = Object.assign({}, DEFAULT_DATA, await this.loadData());
@@ -103,10 +105,13 @@ export default class LaunchpadPlugin
 		);
 
 		this.registerEvent(
-			this.app.workspace.on("layout-change", () => this.refreshViews())
+			this.app.workspace.on("layout-change", () => this.debouncedRefresh())
 		);
 		this.registerEvent(
-			this.app.workspace.on("active-leaf-change", () => this.refreshViews())
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				if (leaf?.view.getViewType() === VIEW_TYPE_BOOKMARK) return;
+				this.debouncedRefresh();
+			})
 		);
 
 		this.app.workspace.onLayoutReady(() => this.initOnReady());
@@ -117,6 +122,20 @@ export default class LaunchpadPlugin
 			window.clearTimeout(this.refreshRetryTimer);
 			this.refreshRetryTimer = null;
 		}
+		if (this.refreshDebounceTimer !== null) {
+			window.clearTimeout(this.refreshDebounceTimer);
+			this.refreshDebounceTimer = null;
+		}
+	}
+
+	private debouncedRefresh(delayMs = 150): void {
+		if (this.refreshDebounceTimer !== null) {
+			window.clearTimeout(this.refreshDebounceTimer);
+		}
+		this.refreshDebounceTimer = window.setTimeout(() => {
+			this.refreshDebounceTimer = null;
+			this.refreshViews();
+		}, delayMs);
 	}
 
 	// ── Startup ────────────────────────────────────────────────────────────
@@ -291,14 +310,19 @@ export default class LaunchpadPlugin
 
 	getOpenTabs(): OpenTab[] {
 		const tabs: OpenTab[] = [];
-		this.app.workspace.iterateAllLeaves((leaf) => {
+		const root = (this.app.workspace as any).rootSplit;
+
+		// iterateAllLeaves includes sidebars — walk rootSplit only to get
+		// main editor tabs, excluding left/right sidebar panels.
+		(this.app.workspace as any).iterateLeaves((leaf: any) => {
 			if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK) return;
 			tabs.push({
 				title: leaf.view.getDisplayText(),
 				type: leaf.view.getViewType(),
-				leafId: (leaf as any).id,
+				leafId: leaf.id,
 			});
-		});
+		}, root);
+
 		return tabs;
 	}
 

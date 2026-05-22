@@ -228,6 +228,15 @@
 	transition: background-color 120ms ease;
 }
 
+/* Suppress underline/border Obsidian themes apply to <a> elements */
+.launchpad-item,
+.launchpad-item:hover,
+.launchpad-item:focus {
+	text-decoration: none;
+	border-bottom: none;
+	box-shadow: none;
+}
+
 .launchpad-item:hover {
 	background-color: var(--background-modifier-hover);
 }
@@ -306,6 +315,15 @@
 	font-size: 0.85em;
 	font-style: italic;
 	transition: background-color 120ms ease;
+}
+
+/* Suppress underline/border Obsidian themes apply to <a> elements */
+.launchpad-back-item,
+.launchpad-back-item:hover,
+.launchpad-back-item:focus {
+	text-decoration: none;
+	border-bottom: none;
+	box-shadow: none;
 }
 
 .launchpad-back-item:hover {
@@ -419,4 +437,18 @@
 
 .launchpad-hidden {
 	display: none;
+}
+/* Tabs folder — independent scroll so bookmarks above stay visible */
+.launchpad-tabs-folder .launchpad-folder-content {
+        max-height: 160px;
+        overflow-y: auto;
+}
+
+.launchpad-tabs-folder .launchpad-folder-content::-webkit-scrollbar {
+        width: 4px;
+}
+
+.launchpad-tabs-folder .launchpad-folder-content::-webkit-scrollbar-thumb {
+        background-color: var(--scrollbar-thumb-bg);
+        border-radius: 2px;
 }

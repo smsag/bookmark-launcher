@@ -534,11 +534,12 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     });
     const isVault = url.startsWith("vault://");
     const isNote = url.startsWith("note://");
+    const isObsidian = url.startsWith("obsidian://");
     const itemIconEl = item.createSpan({
-      cls: isNote ? "lp-item-icon lp-item-icon--note" : isVault ? "lp-item-icon lp-item-icon--vault" : "lp-item-icon",
+      cls: isNote ? "lp-item-icon lp-item-icon--note" : isVault ? "lp-item-icon lp-item-icon--vault" : isObsidian ? "lp-item-icon lp-item-icon--obsidian" : "lp-item-icon",
       attr: { "aria-hidden": "true" }
     });
-    (0, import_obsidian2.setIcon)(itemIconEl, isNote ? "file-text" : isVault ? "library" : "globe");
+    (0, import_obsidian2.setIcon)(itemIconEl, isNote || isVault || isObsidian ? "file-text" : "globe");
     item.createSpan({ cls: "lp-item-name", text: name });
     item.addEventListener("click", (e) => {
       e.preventDefault();
@@ -844,6 +845,8 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     this.previousFile = null;
     /** Pending exponential-backoff retry for refreshViews when iCloud read fails. */
     this.refreshRetryTimer = null;
+    /** Debounce timer for workspace-event-triggered refreshes. */
+    this.refreshDebounceTimer = null;
   }
   async onload() {
     var _a2;
@@ -898,10 +901,14 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
       })
     );
     this.registerEvent(
-      this.app.workspace.on("layout-change", () => this.refreshViews())
+      this.app.workspace.on("layout-change", () => this.debouncedRefresh())
     );
     this.registerEvent(
-      this.app.workspace.on("active-leaf-change", () => this.refreshViews())
+      this.app.workspace.on("active-leaf-change", (leaf) => {
+        if ((leaf == null ? void 0 : leaf.view.getViewType()) === VIEW_TYPE_BOOKMARK)
+          return;
+        this.debouncedRefresh();
+      })
     );
     this.app.workspace.onLayoutReady(() => this.initOnReady());
   }
@@ -910,6 +917,19 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
       window.clearTimeout(this.refreshRetryTimer);
       this.refreshRetryTimer = null;
     }
+    if (this.refreshDebounceTimer !== null) {
+      window.clearTimeout(this.refreshDebounceTimer);
+      this.refreshDebounceTimer = null;
+    }
+  }
+  debouncedRefresh(delayMs = 150) {
+    if (this.refreshDebounceTimer !== null) {
+      window.clearTimeout(this.refreshDebounceTimer);
+    }
+    this.refreshDebounceTimer = window.setTimeout(() => {
+      this.refreshDebounceTimer = null;
+      this.refreshViews();
+    }, delayMs);
   }
   // ── Startup ────────────────────────────────────────────────────────────
   async initOnReady() {
@@ -1043,7 +1063,8 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   }
   getOpenTabs() {
     const tabs = [];
-    this.app.workspace.iterateAllLeaves((leaf) => {
+    const root = this.app.workspace.rootSplit;
+    this.app.workspace.iterateLeaves((leaf) => {
       if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK)
         return;
       tabs.push({
@@ -1051,7 +1072,7 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
         type: leaf.view.getViewType(),
         leafId: leaf.id
       });
-    });
+    }, root);
     return tabs;
   }
   focusTab(leafId) {
