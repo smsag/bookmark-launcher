@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
-import { BookmarkFolder, BookmarkStore } from "./types";
+import { BookmarkFolder, BookmarkStore, OpenTab } from "./types";
 import { FOLDER_SEP } from "./BookmarkStore";
 import { t } from "./i18n";
 
@@ -19,6 +19,10 @@ export interface BookmarkViewHost {
 	getPreviousFilename(): string | null;
 	/** Navigate back to the captured file and clear the back-link. */
 	navigateBack(): Promise<void>;
+	/** Returns all currently open tabs except the Launchpad panel itself. */
+	getOpenTabs(): OpenTab[];
+	/** Focuses the tab with the given leafId. */
+	focusTab(leafId: string): void;
 }
 
 export class BookmarkView extends ItemView {
@@ -112,6 +116,52 @@ export class BookmarkView extends ItemView {
 			});
 		}
 
+		// ── Tabs section ────────────────────────────────────────────────────
+		const openTabs = this.host.getOpenTabs();
+		const tabsKey = "__tabs__";
+		const tabsCollapsed = collapseState[tabsKey] ?? false;
+
+		const tabsFolderEl = scrollEl.createDiv("launchpad-folder launchpad-tabs-folder");
+
+		const tabsHeaderEl = tabsFolderEl.createEl("button", {
+			cls: "launchpad-folder-header",
+			attr: {
+				type: "button",
+				"aria-expanded": (!tabsCollapsed).toString(),
+			},
+		});
+		const tabsIconEl = tabsHeaderEl.createSpan({
+			cls: "lp-folder-icon",
+			attr: { "aria-hidden": "true" },
+		});
+		setIcon(tabsIconEl, "panel-top-open");
+		tabsHeaderEl.createSpan({ text: t("tabs.folder") });
+		const tabsArrow = tabsHeaderEl.createSpan({
+			cls: "launchpad-folder-arrow" + (tabsCollapsed ? " collapsed" : ""),
+			text: "▾",
+			attr: { "aria-hidden": "true" },
+		});
+
+		const tabsContentEl = tabsFolderEl.createDiv("launchpad-folder-content");
+		if (tabsCollapsed) tabsContentEl.addClass("is-collapsed");
+		const tabsInnerEl = tabsContentEl.createDiv("lp-inner");
+
+		tabsHeaderEl.addEventListener("click", async () => {
+			const nowCollapsed = !tabsContentEl.hasClass("is-collapsed");
+			tabsContentEl.toggleClass("is-collapsed", nowCollapsed);
+			tabsArrow.classList.toggle("collapsed", nowCollapsed);
+			tabsHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
+			await this.host.setCollapseState(tabsKey, nowCollapsed);
+		});
+
+		if (openTabs.length === 0) {
+			tabsInnerEl.createDiv({ cls: "launchpad-empty", text: t("tabs.empty") });
+		} else {
+			for (const tab of openTabs) {
+				this.renderTabItem(tabsInnerEl, tab);
+			}
+		}
+
 		// Back link — pinned to the bottom-left of the view
 		const previousFilename = this.host.getPreviousFilename();
 		if (previousFilename !== null) {
@@ -194,6 +244,37 @@ export class BookmarkView extends ItemView {
 		for (const sub of folder.subfolders) {
 			this.renderFolder(innerEl, sub, collapseState, folder.name);
 		}
+	}
+
+	private renderTabItem(parent: HTMLElement, tab: OpenTab): void {
+		const item = parent.createEl("a", {
+			cls: "launchpad-item launchpad-tab-item",
+			attr: {
+				href: "#",
+				title: tab.title,
+				"aria-label": `${t("tabs.ariaLabel")}: ${tab.title}`,
+			},
+		});
+
+		const iconEl = item.createSpan({
+			cls: "lp-item-icon",
+			attr: { "aria-hidden": "true" },
+		});
+
+		const iconName =
+			tab.type === "markdown"  ? "file-text" :
+			tab.type === "pdf"       ? "file-type" :
+			tab.type === "canvas"    ? "layout-dashboard" :
+			tab.type === "graph"     ? "git-fork" :
+			                           "file";
+
+		setIcon(iconEl, iconName);
+		item.createSpan({ cls: "lp-item-name", text: tab.title });
+
+		item.addEventListener("click", (e) => {
+			e.preventDefault();
+			this.host.focusTab(tab.leafId);
+		});
 	}
 
 	private renderBookmarkItem(

@@ -1,6 +1,7 @@
 import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
 import { BookmarkStoreManager, DEFAULT_BOOKMARKS_FILE } from "./BookmarkStore";
 import { BookmarkView, BookmarkViewHost, VIEW_TYPE_BOOKMARK } from "./BookmarkView";
+import { OpenTab } from "./types";
 import { CaptureModal } from "./CaptureModal";
 import { SetupModal } from "./SetupModal";
 
@@ -99,6 +100,13 @@ export default class LaunchpadPlugin
 						.onClick(() => navigator.clipboard.writeText(launchpadPath))
 				);
 			})
+		);
+
+		this.registerEvent(
+			this.app.workspace.on("layout-change", () => this.refreshViews())
+		);
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", () => this.refreshViews())
 		);
 
 		this.app.workspace.onLayoutReady(() => this.initOnReady());
@@ -280,6 +288,28 @@ export default class LaunchpadPlugin
 		await this.app.workspace.getLeaf(false).openFile(file);
 		await this.refreshViews();
 	}
+
+	getOpenTabs(): OpenTab[] {
+		const tabs: OpenTab[] = [];
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK) return;
+			tabs.push({
+				title: leaf.view.getDisplayText(),
+				type: leaf.view.getViewType(),
+				leafId: (leaf as any).id,
+			});
+		});
+		return tabs;
+	}
+
+	focusTab(leafId: string): void {
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			if ((leaf as any).id === leafId) {
+				this.app.workspace.setActiveLeaf(leaf, { focus: true });
+			}
+		});
+	}
+
 
 	// ── Panel management ───────────────────────────────────────────────────
 

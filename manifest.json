@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-launchpad",
 	"name": "Launchpad",
-	"version": "1.1.1",
+	"version": "1.1.2",
 	"minAppVersion": "1.4.0",
 	"description": "A sidebar launchpad for instant access to any link \u2014 internal or external \u2014 without breaking your flow.",
 	"author": "Steffen",

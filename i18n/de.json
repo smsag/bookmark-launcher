@@ -19,5 +19,8 @@
   "modal.save": "Speichern",
   "modal.cancel": "Abbrechen",
   "modal.saveError": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
-  "back.ariaLabel": "Zurück zu"
+  "back.ariaLabel": "Zurück zu",
+  "tabs.folder": "Tabs",
+  "tabs.empty": "Keine Tabs geöffnet.",
+  "tabs.ariaLabel": "Zu Tab wechseln"
 }

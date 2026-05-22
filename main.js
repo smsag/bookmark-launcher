@@ -291,7 +291,10 @@ var en_default = {
   "modal.save": "Save",
   "modal.cancel": "Cancel",
   "modal.saveError": "Failed to save. Please try again.",
-  "back.ariaLabel": "Go back to"
+  "back.ariaLabel": "Go back to",
+  "tabs.folder": "Tabs",
+  "tabs.empty": "No tabs open.",
+  "tabs.ariaLabel": "Switch to tab"
 };
 
 // i18n/de.json
@@ -316,7 +319,10 @@ var de_default = {
   "modal.save": "Speichern",
   "modal.cancel": "Abbrechen",
   "modal.saveError": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
-  "back.ariaLabel": "Zur\xFCck zu"
+  "back.ariaLabel": "Zur\xFCck zu",
+  "tabs.folder": "Tabs",
+  "tabs.empty": "Keine Tabs ge\xF6ffnet.",
+  "tabs.ariaLabel": "Zu Tab wechseln"
 };
 
 // i18n.ts
@@ -364,6 +370,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     }
   }
   render() {
+    var _a2;
     this.contentEl.empty();
     this.contentEl.addClass("launchpad-content-el");
     const container = this.contentEl.createDiv("launchpad-container");
@@ -399,6 +406,46 @@ var BookmarkView = class extends import_obsidian2.ItemView {
         cls: "launchpad-empty",
         text: t("panel.empty")
       });
+    }
+    const openTabs = this.host.getOpenTabs();
+    const tabsKey = "__tabs__";
+    const tabsCollapsed = (_a2 = collapseState[tabsKey]) != null ? _a2 : false;
+    const tabsFolderEl = scrollEl.createDiv("launchpad-folder launchpad-tabs-folder");
+    const tabsHeaderEl = tabsFolderEl.createEl("button", {
+      cls: "launchpad-folder-header",
+      attr: {
+        type: "button",
+        "aria-expanded": (!tabsCollapsed).toString()
+      }
+    });
+    const tabsIconEl = tabsHeaderEl.createSpan({
+      cls: "lp-folder-icon",
+      attr: { "aria-hidden": "true" }
+    });
+    (0, import_obsidian2.setIcon)(tabsIconEl, "panel-top-open");
+    tabsHeaderEl.createSpan({ text: t("tabs.folder") });
+    const tabsArrow = tabsHeaderEl.createSpan({
+      cls: "launchpad-folder-arrow" + (tabsCollapsed ? " collapsed" : ""),
+      text: "\u25BE",
+      attr: { "aria-hidden": "true" }
+    });
+    const tabsContentEl = tabsFolderEl.createDiv("launchpad-folder-content");
+    if (tabsCollapsed)
+      tabsContentEl.addClass("is-collapsed");
+    const tabsInnerEl = tabsContentEl.createDiv("lp-inner");
+    tabsHeaderEl.addEventListener("click", async () => {
+      const nowCollapsed = !tabsContentEl.hasClass("is-collapsed");
+      tabsContentEl.toggleClass("is-collapsed", nowCollapsed);
+      tabsArrow.classList.toggle("collapsed", nowCollapsed);
+      tabsHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
+      await this.host.setCollapseState(tabsKey, nowCollapsed);
+    });
+    if (openTabs.length === 0) {
+      tabsInnerEl.createDiv({ cls: "launchpad-empty", text: t("tabs.empty") });
+    } else {
+      for (const tab of openTabs) {
+        this.renderTabItem(tabsInnerEl, tab);
+      }
     }
     const previousFilename = this.host.getPreviousFilename();
     if (previousFilename !== null) {
@@ -458,6 +505,27 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     for (const sub of folder.subfolders) {
       this.renderFolder(innerEl, sub, collapseState, folder.name);
     }
+  }
+  renderTabItem(parent, tab) {
+    const item = parent.createEl("a", {
+      cls: "launchpad-item launchpad-tab-item",
+      attr: {
+        href: "#",
+        title: tab.title,
+        "aria-label": `${t("tabs.ariaLabel")}: ${tab.title}`
+      }
+    });
+    const iconEl = item.createSpan({
+      cls: "lp-item-icon",
+      attr: { "aria-hidden": "true" }
+    });
+    const iconName = tab.type === "markdown" ? "file-text" : tab.type === "pdf" ? "file-type" : tab.type === "canvas" ? "layout-dashboard" : tab.type === "graph" ? "git-fork" : "file";
+    (0, import_obsidian2.setIcon)(iconEl, iconName);
+    item.createSpan({ cls: "lp-item-name", text: tab.title });
+    item.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.host.focusTab(tab.leafId);
+    });
   }
   renderBookmarkItem(parent, name, url) {
     const item = parent.createEl("a", {
@@ -829,6 +897,12 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
         );
       })
     );
+    this.registerEvent(
+      this.app.workspace.on("layout-change", () => this.refreshViews())
+    );
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", () => this.refreshViews())
+    );
     this.app.workspace.onLayoutReady(() => this.initOnReady());
   }
   async onunload() {
@@ -966,6 +1040,26 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     }
     await this.app.workspace.getLeaf(false).openFile(file);
     await this.refreshViews();
+  }
+  getOpenTabs() {
+    const tabs = [];
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK)
+        return;
+      tabs.push({
+        title: leaf.view.getDisplayText(),
+        type: leaf.view.getViewType(),
+        leafId: leaf.id
+      });
+    });
+    return tabs;
+  }
+  focusTab(leafId) {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (leaf.id === leafId) {
+        this.app.workspace.setActiveLeaf(leaf, { focus: true });
+      }
+    });
   }
   // ── Panel management ───────────────────────────────────────────────────
   async revealPanel() {

@@ -19,5 +19,8 @@
   "modal.save": "Save",
   "modal.cancel": "Cancel",
   "modal.saveError": "Failed to save. Please try again.",
-  "back.ariaLabel": "Go back to"
+  "back.ariaLabel": "Go back to",
+  "tabs.folder": "Tabs",
+  "tabs.empty": "No tabs open.",
+  "tabs.ariaLabel": "Switch to tab"
 }

@@ -19,3 +19,9 @@ export interface FolderOption {
 	value: string;
 	isSubfolder: boolean;
 }
+
+export interface OpenTab {
+	title: string;
+	type: string;
+	leafId: string;
+}
