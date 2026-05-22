@@ -155,11 +155,22 @@ export default class LaunchpadPlugin
 	// ── Setup modal ────────────────────────────────────────────────────────
 
 	showSetupModal(): void {
-		new SetupModal(this.app, async (chosenPath: string) => {
-			await this.adoptPath(chosenPath);
-			await this.store.ensureFile();
-			await this.revealPanel();
-		}).open();
+		new SetupModal(
+			this.app,
+			async (chosenPath: string) => {
+				await this.adoptPath(chosenPath);
+				await this.store.ensureFile();
+				await this.revealPanel();
+				// Note: errors propagate back to SetupModal's try/catch, which
+				// displays them in the modal's error element and re-enables the button.
+			},
+			this.data.bookmarksFilePath,
+		).open();
+	}
+
+	/** Called from the sidebar gear button — implements BookmarkViewHost. */
+	openSetupModal(): void {
+		this.showSetupModal();
 	}
 
 	/** Persist a confirmed bookmarks file path and point the store at it. */

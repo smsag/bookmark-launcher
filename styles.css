@@ -60,6 +60,32 @@
 	outline-offset: 1px;
 }
 
+.launchpad-settings-btn {
+	cursor: pointer;
+	width: 22px;
+	height: 22px;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	border: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	opacity: 0.6;
+}
+
+.launchpad-settings-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	opacity: 1;
+}
+
+.launchpad-settings-btn:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+}
+
 .launchpad-empty {
 	color: var(--text-muted);
 	font-size: 0.85em;

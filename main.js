@@ -90,7 +90,17 @@ var BookmarkStoreManager = class {
     }
     if (!f) {
       await this.ensureParentFolders();
-      await this.app.vault.create(this.filePath, "");
+      try {
+        await this.app.vault.create(this.filePath, "");
+      } catch (e) {
+        f = this.getFile();
+        if (!f) {
+          throw new Error(
+            `Bookmark Launcher: "${this.filePath}" already exists on disk but could not be opened. Try re-opening Obsidian.`
+          );
+        }
+        return f;
+      }
       f = this.getFile();
       if (!f) {
         throw new Error(
@@ -301,6 +311,12 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       attr: { "aria-label": "Add bookmark" }
     });
     addBtn.addEventListener("click", () => this.host.openCaptureModal());
+    const settingsBtn = header.createEl("button", {
+      cls: "launchpad-settings-btn",
+      attr: { "aria-label": "Change bookmarks file" }
+    });
+    (0, import_obsidian2.setIcon)(settingsBtn, "settings");
+    settingsBtn.addEventListener("click", () => this.host.openSetupModal());
     const scrollEl = container.createDiv("launchpad-scroll");
     const collapseState = this.host.getCollapseState();
     if (this.store.uncategorized.length > 0) {
@@ -571,19 +587,22 @@ var CaptureModal = class extends import_obsidian3.Modal {
 // SetupModal.ts
 var import_obsidian4 = require("obsidian");
 var SetupModal = class extends import_obsidian4.Modal {
-  constructor(app, onConfirm) {
+  constructor(app, onConfirm, currentPath) {
     super(app);
     this.onConfirm = onConfirm;
+    this.currentPath = currentPath != null ? currentPath : null;
   }
   onOpen() {
+    var _a;
     const { contentEl } = this;
+    const isReconfigure = this.currentPath !== null;
     contentEl.addClass("launchpad-setup-modal");
-    new import_obsidian4.Setting(contentEl).setName("Set up Launchpad").setHeading();
+    new import_obsidian4.Setting(contentEl).setName(isReconfigure ? "Change bookmarks file" : "Set up Launchpad").setHeading();
     contentEl.createEl("p", {
       cls: "launchpad-setup-description",
-      text: "Choose where to store your bookmarks file. You can place it anywhere inside your vault \u2014 it stays a plain Markdown file you can edit directly."
+      text: isReconfigure ? "Enter the vault-relative path of the Markdown file you want to use. The file will be created if it does not exist yet." : "Choose where to store your bookmarks file. You can place it anywhere inside your vault \u2014 it stays a plain Markdown file you can edit directly."
     });
-    let pathValue = "bookmarks.md";
+    let pathValue = (_a = this.currentPath) != null ? _a : "bookmarks.md";
     const pathField = contentEl.createDiv("launchpad-capture-field");
     const pathLbl = pathField.createEl("label", { text: "File path (relative to vault root)" });
     pathLbl.setAttribute("for", "lp-sm-path");
@@ -596,6 +615,8 @@ var SetupModal = class extends import_obsidian4.Modal {
       }
     });
     pathInput.value = pathValue;
+    if (isReconfigure)
+      pathInput.select();
     const errorEl = pathField.createDiv({
       cls: "launchpad-capture-error",
       text: "",
@@ -641,11 +662,12 @@ var SetupModal = class extends import_obsidian4.Modal {
       confirmBtn.disabled = !!validate(pathValue);
     });
     const actions = contentEl.createDiv("launchpad-capture-actions");
-    const cancelBtn = actions.createEl("button", { text: "Later" });
+    const cancelBtn = actions.createEl("button", { text: isReconfigure ? "Cancel" : "Later" });
     cancelBtn.addEventListener("click", () => this.close());
+    const confirmLabel = isReconfigure ? "Save" : "Create file";
     const confirmBtn = actions.createEl("button", {
       cls: "mod-cta",
-      text: "Create file"
+      text: confirmLabel
     });
     confirmBtn.addEventListener("click", async () => {
       const err = validate(pathValue.trim());
@@ -654,9 +676,15 @@ var SetupModal = class extends import_obsidian4.Modal {
         return;
       }
       confirmBtn.disabled = true;
-      confirmBtn.setText("Creating\u2026");
-      await this.onConfirm((0, import_obsidian4.normalizePath)(pathValue.trim()));
-      this.close();
+      confirmBtn.setText(isReconfigure ? "Saving\u2026" : "Creating\u2026");
+      try {
+        await this.onConfirm((0, import_obsidian4.normalizePath)(pathValue.trim()));
+        this.close();
+      } catch (e) {
+        errorEl.textContent = e instanceof Error ? e.message : String(e);
+        confirmBtn.disabled = false;
+        confirmBtn.setText(confirmLabel);
+      }
     });
     pathInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !confirmBtn.disabled)
@@ -775,11 +803,19 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   }
   // ── Setup modal ────────────────────────────────────────────────────────
   showSetupModal() {
-    new SetupModal(this.app, async (chosenPath) => {
-      await this.adoptPath(chosenPath);
-      await this.store.ensureFile();
-      await this.revealPanel();
-    }).open();
+    new SetupModal(
+      this.app,
+      async (chosenPath) => {
+        await this.adoptPath(chosenPath);
+        await this.store.ensureFile();
+        await this.revealPanel();
+      },
+      this.data.bookmarksFilePath
+    ).open();
+  }
+  /** Called from the sidebar gear button — implements BookmarkViewHost. */
+  openSetupModal() {
+    this.showSetupModal();
   }
   /** Persist a confirmed bookmarks file path and point the store at it. */
   async adoptPath(path) {

@@ -6,6 +6,8 @@ export const VIEW_TYPE_BOOKMARK = "launchpad-view";
 
 export interface BookmarkViewHost {
 	openCaptureModal(): Promise<void>;
+	/** Open the setup modal to change the bookmarks file path. */
+	openSetupModal(): void;
 	getCollapseState(): Record<string, boolean>;
 	setCollapseState(key: string, collapsed: boolean): Promise<void>;
 	/** Open a bookmark URL; captures the active file for obsidian:// links. */
@@ -73,6 +75,13 @@ export class BookmarkView extends ItemView {
 			attr: { "aria-label": "Add bookmark" },
 		});
 		addBtn.addEventListener("click", () => this.host.openCaptureModal());
+
+		const settingsBtn = header.createEl("button", {
+			cls: "launchpad-settings-btn",
+			attr: { "aria-label": "Change bookmarks file" },
+		});
+		setIcon(settingsBtn, "settings");
+		settingsBtn.addEventListener("click", () => this.host.openSetupModal());
 
 		// Scrollable content area
 		const scrollEl = container.createDiv("launchpad-scroll");

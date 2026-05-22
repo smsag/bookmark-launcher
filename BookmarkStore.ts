@@ -87,7 +87,21 @@ export class BookmarkStoreManager {
 		}
 		if (!f) {
 			await this.ensureParentFolders();
-			await this.app.vault.create(this.filePath, "");
+			try {
+				await this.app.vault.create(this.filePath, "");
+			} catch {
+				// vault.create() throws if the file already exists on disk but
+				// wasn't indexed yet (e.g. iCloud file that hydrated after the
+				// stat/sleep window). Give the vault one final chance to index it.
+				f = this.getFile();
+				if (!f) {
+					throw new Error(
+						`Bookmark Launcher: "${this.filePath}" already exists on disk ` +
+						`but could not be opened. Try re-opening Obsidian.`
+					);
+				}
+				return f;
+			}
 			f = this.getFile();
 			if (!f) {
 				throw new Error(

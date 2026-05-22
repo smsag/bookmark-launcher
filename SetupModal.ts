@@ -1,30 +1,41 @@
 import { App, Modal, Setting, TFolder, normalizePath } from "obsidian";
 
 /**
- * Shown on first launch (or when the bookmarks file cannot be found).
- * Lets the user pick a vault-relative path for their bookmarks file.
- * Dismissing without saving leaves bookmarksFilePath as null; the user
- * can re-open this modal via the "Configure file location" command.
+ * Shown on first launch or when the user wants to change the bookmarks file.
+ * Pass `currentPath` to pre-fill the input and switch to reconfigure wording.
+ * Dismissing without saving leaves bookmarksFilePath unchanged; the user
+ * can re-open this modal via the header gear button or the command palette.
  */
 export class SetupModal extends Modal {
 	private onConfirm: (path: string) => Promise<void>;
+	private currentPath: string | null;
 
-	constructor(app: App, onConfirm: (path: string) => Promise<void>) {
+	constructor(
+		app: App,
+		onConfirm: (path: string) => Promise<void>,
+		currentPath?: string | null,
+	) {
 		super(app);
 		this.onConfirm = onConfirm;
+		this.currentPath = currentPath ?? null;
 	}
 
 	onOpen(): void {
 		const { contentEl } = this;
+		const isReconfigure = this.currentPath !== null;
 		contentEl.addClass("launchpad-setup-modal");
-		new Setting(contentEl).setName("Set up Launchpad").setHeading();
+		new Setting(contentEl)
+			.setName(isReconfigure ? "Change bookmarks file" : "Set up Launchpad")
+			.setHeading();
 		contentEl.createEl("p", {
 			cls: "launchpad-setup-description",
-			text: "Choose where to store your bookmarks file. You can place it anywhere inside your vault — it stays a plain Markdown file you can edit directly.",
+			text: isReconfigure
+				? "Enter the vault-relative path of the Markdown file you want to use. The file will be created if it does not exist yet."
+				: "Choose where to store your bookmarks file. You can place it anywhere inside your vault — it stays a plain Markdown file you can edit directly.",
 		});
 
 		// ── Path input ────────────────────────────────────────────────────
-		let pathValue = "bookmarks.md";
+		let pathValue = this.currentPath ?? "bookmarks.md";
 
 		const pathField = contentEl.createDiv("launchpad-capture-field");
 		const pathLbl = pathField.createEl("label", { text: "File path (relative to vault root)" });
@@ -39,6 +50,7 @@ export class SetupModal extends Modal {
 			},
 		});
 		pathInput.value = pathValue;
+		if (isReconfigure) pathInput.select();
 
 		// aria-live="polite" so screen readers announce validation messages
 		// without interrupting the current reading flow.
@@ -99,20 +111,27 @@ export class SetupModal extends Modal {
 		// ── Actions ───────────────────────────────────────────────────────
 		const actions = contentEl.createDiv("launchpad-capture-actions");
 
-		const cancelBtn = actions.createEl("button", { text: "Later" });
+		const cancelBtn = actions.createEl("button", { text: isReconfigure ? "Cancel" : "Later" });
 		cancelBtn.addEventListener("click", () => this.close());
 
+		const confirmLabel = isReconfigure ? "Save" : "Create file";
 		const confirmBtn = actions.createEl("button", {
 			cls: "mod-cta",
-			text: "Create file",
+			text: confirmLabel,
 		});
 		confirmBtn.addEventListener("click", async () => {
 			const err = validate(pathValue.trim());
 			if (err) { errorEl.textContent = err; return; }
 			confirmBtn.disabled = true;
-			confirmBtn.setText("Creating…");
-			await this.onConfirm(normalizePath(pathValue.trim()));
-			this.close();
+			confirmBtn.setText(isReconfigure ? "Saving…" : "Creating…");
+			try {
+				await this.onConfirm(normalizePath(pathValue.trim()));
+				this.close();
+			} catch (e) {
+				errorEl.textContent = e instanceof Error ? e.message : String(e);
+				confirmBtn.disabled = false;
+				confirmBtn.setText(confirmLabel);
+			}
 		});
 
 		// Enter to confirm, Esc to dismiss (Obsidian handles Esc via Modal)
