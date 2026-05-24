@@ -1273,17 +1273,24 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
     this.previousFile = null;
     /** Pending exponential-backoff retry for refreshViews when iCloud read fails. */
     this.refreshRetryTimer = null;
+    /** Debounce timer for batching rapid collapse state writes. */
+    this.collapseDebounceTimer = null;
     /** Debounce timer for workspace-event-triggered refreshes. */
     this.refreshDebounceTimer = null;
+    /** Cached parsed form of settings.latestExcludedFiles. Null = needs rebuild. */
+    this.excludedPathsCache = null;
     this.refreshRequestId = 0;
     this.latestFilesSnapshotCache = null;
     this.latestFilesSnapshotReuseCount = 0;
+    /** Last successfully parsed store snapshot; reused by openCaptureModal. */
+    this.lastKnownStore = null;
   }
   /** Alias so settings tab and host methods share one property name. */
   get settings() {
     return this.data;
   }
   async saveSettings() {
+    this.excludedPathsCache = null;
     await this.saveData(this.data);
   }
   async onload() {
@@ -1308,7 +1315,7 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
     this.addCommand({
       id: "configure-file",
       name: "Configure bookmarks file location",
-      callback: () => this.showSetupModal()
+      callback: () => this.openSetupModal()
     });
     this.addSettingTab(new LaunchpadSettingTab(this.app, this));
     const onBookmarksFileModify = (file) => {
@@ -1356,6 +1363,11 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
       window.clearTimeout(this.refreshRetryTimer);
       this.refreshRetryTimer = null;
     }
+    if (this.collapseDebounceTimer !== null) {
+      window.clearTimeout(this.collapseDebounceTimer);
+      await this.saveSettings();
+      this.collapseDebounceTimer = null;
+    }
     if (this.refreshDebounceTimer !== null) {
       window.clearTimeout(this.refreshDebounceTimer);
       this.refreshDebounceTimer = null;
@@ -1382,7 +1394,7 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
       await this.openAndRefresh();
       return;
     }
-    this.showSetupModal();
+    this.openSetupModal();
   }
   /** Ensures the sidebar panel is open and populated. */
   async openAndRefresh() {
@@ -1401,7 +1413,8 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
     await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
   }
   // ── Setup modal ────────────────────────────────────────────────────────
-  showSetupModal() {
+  /** Opens the setup modal to configure the bookmarks file path. */
+  openSetupModal() {
     new SetupModal(
       this.app,
       async (chosenPath) => {
@@ -1411,10 +1424,6 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
       },
       this.data.bookmarksFilePath
     ).open();
-  }
-  /** Called from the sidebar gear button — implements BookmarkViewHost. */
-  openSetupModal() {
-    this.showSetupModal();
   }
   /** Opens Obsidian's settings modal on this plugin's settings tab. */
   openSettings() {
@@ -1432,7 +1441,8 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
   }
   // ── BookmarkViewHost ───────────────────────────────────────────────────
   async openCaptureModal() {
-    const storeData = await this.store.parse();
+    var _a2;
+    const storeData = (_a2 = this.lastKnownStore) != null ? _a2 : await this.store.parse();
     new CaptureModal(
       this.app,
       this.store,
@@ -1444,7 +1454,13 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
   }
   async setCollapseState(key, collapsed) {
     this.data.collapseState[key] = collapsed;
-    await this.saveSettings();
+    if (this.collapseDebounceTimer !== null) {
+      window.clearTimeout(this.collapseDebounceTimer);
+    }
+    this.collapseDebounceTimer = window.setTimeout(async () => {
+      this.collapseDebounceTimer = null;
+      await this.saveSettings();
+    }, 300);
   }
   async reloadBookmarks() {
     await this.refreshViews();
@@ -1539,9 +1555,12 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
     return this.settings.latestSectionEnabled;
   }
   getLatestExcludedPaths() {
-    return new Set(
+    if (this.excludedPathsCache !== null)
+      return this.excludedPathsCache;
+    this.excludedPathsCache = new Set(
       this.settings.latestExcludedFiles.split(",").map((value) => value.trim()).filter((value) => value.length > 0)
     );
+    return this.excludedPathsCache;
   }
   getFilesSnapshot() {
     if (this.latestFilesSnapshotCache && this.latestFilesSnapshotReuseCount > 0) {
@@ -1613,6 +1632,37 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
     }
     await this.refreshViews();
   }
+  /**
+   * Removes collapse state entries for folders that no longer exist in the
+   * current store. Keeps system section keys and any key matching a known
+   * folder or subfolder in the parsed store. Called after every successful
+   * parse to prevent unbounded growth from renamed or deleted folders.
+   */
+  pruneCollapseState(store) {
+    const systemKeys = /* @__PURE__ */ new Set([
+      "__tabs__",
+      "__latest__",
+      "__latest_created__",
+      "__latest_modified__"
+    ]);
+    const validFolderKeys = /* @__PURE__ */ new Set();
+    for (const folder of store.folders) {
+      validFolderKeys.add(folder.name);
+      for (const sub of folder.subfolders) {
+        validFolderKeys.add(`${folder.name}${FOLDER_SEP}${sub.name}`);
+      }
+    }
+    let changed = false;
+    for (const key of Object.keys(this.data.collapseState)) {
+      if (!systemKeys.has(key) && !validFolderKeys.has(key)) {
+        delete this.data.collapseState[key];
+        changed = true;
+      }
+    }
+    if (changed) {
+      void this.saveSettings();
+    }
+  }
   async refreshViews(retryCount = 0) {
     const requestId = ++this.refreshRequestId;
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
@@ -1645,6 +1695,8 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
       window.clearTimeout(this.refreshRetryTimer);
       this.refreshRetryTimer = null;
     }
+    this.lastKnownStore = storeData;
+    this.pruneCollapseState(storeData);
     for (const leaf of leaves) {
       if (leaf.view instanceof BookmarkView) {
         leaf.view.setStore(storeData);

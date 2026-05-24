@@ -7,9 +7,9 @@ import {
 	TFile,
 	TFolder,
 } from "obsidian";
-import { BookmarkStoreManager, DEFAULT_BOOKMARKS_FILE } from "./BookmarkStore";
+import { BookmarkStoreManager, DEFAULT_BOOKMARKS_FILE, FOLDER_SEP } from "./BookmarkStore";
 import { BookmarkView, BookmarkViewHost, VIEW_TYPE_BOOKMARK } from "./BookmarkView";
-import { LatestFile, OpenTab } from "./types";
+import { BookmarkStore, LatestFile, OpenTab } from "./types";
 import { CaptureModal } from "./CaptureModal";
 import { SetupModal } from "./SetupModal";
 import { LaunchpadSettingTab } from "./SettingsTab";
@@ -124,11 +124,17 @@ export default class LaunchpadPlugin
 	private previousFile: TFile | null = null;
 	/** Pending exponential-backoff retry for refreshViews when iCloud read fails. */
 	private refreshRetryTimer: number | null = null;
+	/** Debounce timer for batching rapid collapse state writes. */
+	private collapseDebounceTimer: number | null = null;
 	/** Debounce timer for workspace-event-triggered refreshes. */
 	private refreshDebounceTimer: number | null = null;
+	/** Cached parsed form of settings.latestExcludedFiles. Null = needs rebuild. */
+	private excludedPathsCache: Set<string> | null = null;
 	private refreshRequestId = 0;
 	private latestFilesSnapshotCache: LatestFile[] | null = null;
 	private latestFilesSnapshotReuseCount = 0;
+	/** Last successfully parsed store snapshot; reused by openCaptureModal. */
+	private lastKnownStore: BookmarkStore | null = null;
 
 	/** Alias so settings tab and host methods share one property name. */
 	get settings(): PluginData {
@@ -136,6 +142,9 @@ export default class LaunchpadPlugin
 	}
 
 	async saveSettings(): Promise<void> {
+		// Invalidate the excluded paths cache whenever settings are persisted,
+		// since latestExcludedFiles may have changed.
+		this.excludedPathsCache = null;
 		await this.saveData(this.data);
 	}
 
@@ -168,7 +177,7 @@ export default class LaunchpadPlugin
 		this.addCommand({
 			id: "configure-file",
 			name: "Configure bookmarks file location",
-			callback: () => this.showSetupModal(),
+			callback: () => this.openSetupModal(),
 		});
 
 		this.addSettingTab(new LaunchpadSettingTab(this.app, this));
@@ -234,6 +243,12 @@ export default class LaunchpadPlugin
 			window.clearTimeout(this.refreshRetryTimer);
 			this.refreshRetryTimer = null;
 		}
+		if (this.collapseDebounceTimer !== null) {
+			window.clearTimeout(this.collapseDebounceTimer);
+			// Flush any pending collapse state write before unloading.
+			await this.saveSettings();
+			this.collapseDebounceTimer = null;
+		}
 		if (this.refreshDebounceTimer !== null) {
 			window.clearTimeout(this.refreshDebounceTimer);
 			this.refreshDebounceTimer = null;
@@ -268,7 +283,7 @@ export default class LaunchpadPlugin
 		}
 
 		// Genuinely first launch — ask the user where they want the file.
-		this.showSetupModal();
+		this.openSetupModal();
 	}
 
 	/** Ensures the sidebar panel is open and populated. */
@@ -293,7 +308,8 @@ export default class LaunchpadPlugin
 
 	// ── Setup modal ────────────────────────────────────────────────────────
 
-	showSetupModal(): void {
+	/** Opens the setup modal to configure the bookmarks file path. */
+	openSetupModal(): void {
 		new SetupModal(
 			this.app,
 			async (chosenPath: string) => {
@@ -305,11 +321,6 @@ export default class LaunchpadPlugin
 			},
 			this.data.bookmarksFilePath,
 		).open();
-	}
-
-	/** Called from the sidebar gear button — implements BookmarkViewHost. */
-	openSetupModal(): void {
-		this.showSetupModal();
 	}
 
 	/** Opens Obsidian's settings modal on this plugin's settings tab. */
@@ -331,7 +342,10 @@ export default class LaunchpadPlugin
 	// ── BookmarkViewHost ───────────────────────────────────────────────────
 
 	async openCaptureModal(): Promise<void> {
-		const storeData = await this.store.parse();
+		// Reuse the last known store snapshot for the folder list so the modal
+		// opens instantly. Fall back to a fresh parse only on first open or
+		// after a parse failure cleared the cache.
+		const storeData = this.lastKnownStore ?? await this.store.parse();
 		// Provide folder options via callback so CaptureModal resolves them
 		// at open time rather than storing a long-lived snapshot.
 		new CaptureModal(
@@ -346,8 +360,17 @@ export default class LaunchpadPlugin
 	}
 
 	async setCollapseState(key: string, collapsed: boolean): Promise<void> {
+		// Update in-memory immediately so re-renders use the latest state.
 		this.data.collapseState[key] = collapsed;
-		await this.saveSettings();
+		// Batch rapid clicks into a single write — avoids sequential disk
+		// writes when a user collapses several folders in quick succession.
+		if (this.collapseDebounceTimer !== null) {
+			window.clearTimeout(this.collapseDebounceTimer);
+		}
+		this.collapseDebounceTimer = window.setTimeout(async () => {
+			this.collapseDebounceTimer = null;
+			await this.saveSettings();
+		}, 300);
 	}
 
 	async reloadBookmarks(): Promise<void> {
@@ -460,12 +483,14 @@ export default class LaunchpadPlugin
 	}
 
 	getLatestExcludedPaths(): Set<string> {
-		return new Set(
+		if (this.excludedPathsCache !== null) return this.excludedPathsCache;
+		this.excludedPathsCache = new Set(
 			this.settings.latestExcludedFiles
 				.split(",")
 				.map((value) => value.trim())
 				.filter((value) => value.length > 0)
 		);
+		return this.excludedPathsCache;
 	}
 
 	private getFilesSnapshot(): LatestFile[] {
@@ -571,6 +596,44 @@ export default class LaunchpadPlugin
 		await this.refreshViews();
 	}
 
+	/**
+	 * Removes collapse state entries for folders that no longer exist in the
+	 * current store. Keeps system section keys and any key matching a known
+	 * folder or subfolder in the parsed store. Called after every successful
+	 * parse to prevent unbounded growth from renamed or deleted folders.
+	 */
+	private pruneCollapseState(store: BookmarkStore): void {
+		const systemKeys = new Set([
+			"__tabs__",
+			"__latest__",
+			"__latest_created__",
+			"__latest_modified__",
+		]);
+
+		// Build the set of valid folder collapse keys from the current store.
+		const validFolderKeys = new Set<string>();
+		for (const folder of store.folders) {
+			validFolderKeys.add(folder.name);
+			for (const sub of folder.subfolders) {
+				validFolderKeys.add(`${folder.name}${FOLDER_SEP}${sub.name}`);
+			}
+		}
+
+		let changed = false;
+		for (const key of Object.keys(this.data.collapseState)) {
+			if (!systemKeys.has(key) && !validFolderKeys.has(key)) {
+				delete this.data.collapseState[key];
+				changed = true;
+			}
+		}
+
+		// Only persist if something was actually pruned — avoids a redundant
+		// disk write on every refresh when no stale keys exist.
+		if (changed) {
+			void this.saveSettings();
+		}
+	}
+
 	async refreshViews(retryCount = 0): Promise<void> {
 		const requestId = ++this.refreshRequestId;
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
@@ -610,6 +673,8 @@ export default class LaunchpadPlugin
 			window.clearTimeout(this.refreshRetryTimer);
 			this.refreshRetryTimer = null;
 		}
+		this.lastKnownStore = storeData;
+		this.pruneCollapseState(storeData);
 		for (const leaf of leaves) {
 			if (leaf.view instanceof BookmarkView) {
 				leaf.view.setStore(storeData);

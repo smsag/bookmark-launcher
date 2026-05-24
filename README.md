@@ -75,6 +75,7 @@ Use these settings:
 - **Show Latest section** — show or hide the recent-files section (default: on)
 - **Latest files count** — number of files shown in each subsection (default: 5, maximum: 50)
 - **Enable file deletion** — shows a trash icon on Latest items; deleting moves files to system trash after confirmation (default: off)
+- **Exclude files from Latest** — comma-separated list of vault-relative file paths to hide from both Latest subsections (e.g. `bookmarks.md`, `Resources/journal.md`). Default: empty (no exclusions).
 
 ## Bookmarks file format
 
