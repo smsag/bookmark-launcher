@@ -25,7 +25,8 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // main.ts
 var main_exports = {};
 __export(main_exports, {
-  default: () => LaunchpadPlugin
+  default: () => LaunchpadPlugin,
+  sanitizePluginData: () => sanitizePluginData
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian10 = require("obsidian");

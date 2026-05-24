@@ -1,21 +1,26 @@
 {
 	"name": "obsidian-launchpad",
 	"version": "1.1.11",
-	"description": "A sidebar launchpad for instant access to any link \u2014 internal or external \u2014 without breaking your flow.",
+	"description": "A sidebar launchpad for instant access to any link — internal or external — without breaking your flow.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage"
 	},
 	"keywords": [],
 	"author": "Steffen",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
+		"@vitest/coverage-v8": "^0.34.6",
 		"builtin-modules": "^3.3.0",
 		"esbuild": "0.17.3",
 		"obsidian": "latest",
 		"tslib": "2.4.0",
-		"typescript": "^5.9.3"
+		"typescript": "^5.9.3",
+		"vitest": "^0.34.6"
 	}
 }

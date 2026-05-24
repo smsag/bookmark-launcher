@@ -28,7 +28,7 @@ interface PluginData {
 /**
  * Coerces persisted plugin data into a safe, fully-typed shape.
  */
-function sanitizePluginData(raw: unknown): PluginData {
+export function sanitizePluginData(raw: unknown): PluginData {
 	const data = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
 	const collapseStateRaw =
 		data.collapseState && typeof data.collapseState === "object"

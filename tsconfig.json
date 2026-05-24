@@ -3,7 +3,9 @@
 		"inlineSourceMap": true,
 		"inlineSources": true,
 		"module": "ESNext",
+		"noEmit": true,
 		"target": "ES6",
+		"allowImportingTsExtensions": true,
 		"allowSyntheticDefaultImports": true,
 		"importHelpers": true,
 		"lib": [
