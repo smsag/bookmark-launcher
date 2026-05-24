@@ -486,7 +486,12 @@
 	overflow-y: auto;
 }
 
+.launchpad-latest-folder .launchpad-subfolder-header {
+	padding-left: 4px;
+}
+
 .launchpad-latest-folder .launchpad-subfolder-content > .lp-inner {
+	padding-left: 14px;
 	padding-bottom: 6px;
 }
 
@@ -540,14 +545,15 @@
 	width: 20px;
 	height: 20px;
 	padding: 0;
-	background: none;
-	border: none;
+	background: none !important; /* Override Obsidian button background styles. */
+	border: none !important; /* Override Obsidian button border styles. */
 	border-radius: 4px;
-	color: var(--color-accent);
+	color: var(--color-accent) !important; /* Override Obsidian button text/icon color styles. */
 	cursor: default;
 	opacity: 0;
 	transition: opacity 120ms ease;
 	flex-shrink: 0;
+	box-shadow: none !important; /* Override Obsidian button shadow styles. */
 }
 
 .launchpad-latest-item:hover .launchpad-delete-btn {
@@ -555,7 +561,8 @@
 }
 
 .launchpad-delete-btn:hover {
-	color: var(--color-accent);
+	color: var(--color-accent) !important; /* Keep Obsidian hover styles from changing the icon color. */
+	background: none !important; /* Keep Obsidian hover styles from adding a button background. */
 }
 
 .launchpad-delete-btn svg {

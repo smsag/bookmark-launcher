@@ -39,6 +39,8 @@
   "settings.tabs.desc": "Display open editor tabs in the sidebar panel.",
   "settings.latest.name": "Show Latest section",
   "settings.latest.desc": "Display recently created and modified notes in the sidebar panel.",
+  "settings.latest.exclude.name": "Exclude files from Latest",
+  "settings.latest.exclude.desc": "Comma-separated list of filenames to hide from the Latest section (e.g. bookmarks.md, journal.md). Match is against the full vault-relative path.",
   "settings.latestDelete.name": "Enable file deletion",
   "settings.latestDelete.desc": "Show a delete button on Latest items. Files are moved to the system trash.",
   "settings.latestCount.name": "Latest files count",

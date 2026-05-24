@@ -39,6 +39,8 @@
   "settings.tabs.desc": "Zeigt geöffnete Editor-Tabs im Seitenbereich an.",
   "settings.latest.name": "Zuletzt-Bereich anzeigen",
   "settings.latest.desc": "Zeigt zuletzt erstellte und geänderte Notizen im Seitenbereich an.",
+  "settings.latest.exclude.name": "Dateien aus Zuletzt ausschließen",
+  "settings.latest.exclude.desc": "Kommagetrennte Liste von Dateinamen, die im Zuletzt-Bereich ausgeblendet werden (z. B. bookmarks.md, journal.md). Der Abgleich erfolgt gegen den vollständigen vault-relativen Pfad.",
   "settings.latestDelete.name": "Datei löschen aktivieren",
   "settings.latestDelete.desc": "Löschen-Schaltfläche bei zuletzt erstellten Dateien anzeigen. Dateien werden in den Papierkorb verschoben.",
   "settings.latestCount.name": "Anzahl zuletzt verwendeter Dateien",

@@ -25,6 +25,8 @@ export interface BookmarkViewHost {
 	isLatestSectionEnabled(): boolean;
 	getLatestCreatedFiles(): LatestFile[];
 	getLatestModifiedFiles(): LatestFile[];
+	/** Returns the set of vault-relative file paths to exclude from Latest. */
+	getLatestExcludedPaths(): Set<string>;
 	openLatestFile(path: string): void;
 	deleteLatestFile(path: string): Promise<void>;
 	isDeleteEnabled(): boolean;

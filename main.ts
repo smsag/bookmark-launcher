@@ -45,6 +45,7 @@ interface PluginData {
 	latestDeleteEnabled: boolean;
 	tabsSectionEnabled: boolean;
 	latestSectionEnabled: boolean;
+	latestExcludedFiles: string;
 }
 
 /**
@@ -89,6 +90,11 @@ function sanitizePluginData(raw: unknown): PluginData {
 			? data.latestSectionEnabled
 			: DEFAULT_DATA.latestSectionEnabled;
 
+	const latestExcludedFiles =
+		typeof data.latestExcludedFiles === "string"
+			? data.latestExcludedFiles
+			: DEFAULT_DATA.latestExcludedFiles;
+
 	return {
 		collapseState,
 		bookmarksFilePath,
@@ -96,6 +102,7 @@ function sanitizePluginData(raw: unknown): PluginData {
 		latestDeleteEnabled,
 		tabsSectionEnabled,
 		latestSectionEnabled,
+		latestExcludedFiles,
 	};
 }
 
@@ -106,6 +113,7 @@ const DEFAULT_DATA: PluginData = {
 	latestDeleteEnabled: false,
 	tabsSectionEnabled: true,
 	latestSectionEnabled: true,
+	latestExcludedFiles: "",
 };
 
 export default class LaunchpadPlugin
@@ -453,6 +461,15 @@ export default class LaunchpadPlugin
 		return this.settings.latestSectionEnabled;
 	}
 
+	getLatestExcludedPaths(): Set<string> {
+		return new Set(
+			this.settings.latestExcludedFiles
+				.split(",")
+				.map((value) => value.trim())
+				.filter((value) => value.length > 0)
+		);
+	}
+
 	private getFilesSnapshot(): LatestFile[] {
 		if (this.latestFilesSnapshotCache && this.latestFilesSnapshotReuseCount > 0) {
 			this.latestFilesSnapshotReuseCount -= 1;
@@ -463,9 +480,11 @@ export default class LaunchpadPlugin
 			return [...snapshot];
 		}
 
+		const excludedPaths = this.getLatestExcludedPaths();
 		const snapshot = this.app.vault
 			.getFiles()
 			.filter((file) => file.extension === "md")
+			.filter((file) => !excludedPaths.has(file.path))
 			.map((file) => ({
 				title: file.basename,
 				path: file.path,
@@ -634,6 +653,20 @@ class LaunchpadSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.latestSectionEnabled)
 					.onChange(async (value) => {
 						this.plugin.settings.latestSectionEnabled = value;
+						await this.plugin.saveSettings();
+						await this.plugin.refreshViews();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName(t("settings.latest.exclude.name"))
+			.setDesc(t("settings.latest.exclude.desc"))
+			.addText((text) =>
+				text
+					.setPlaceholder("bookmarks.md, Resources/journal.md")
+					.setValue(this.plugin.settings.latestExcludedFiles)
+					.onChange(async (value) => {
+						this.plugin.settings.latestExcludedFiles = value;
 						await this.plugin.saveSettings();
 						await this.plugin.refreshViews();
 					})

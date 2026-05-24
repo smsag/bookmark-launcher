@@ -311,6 +311,8 @@ var en_default = {
   "settings.tabs.desc": "Display open editor tabs in the sidebar panel.",
   "settings.latest.name": "Show Latest section",
   "settings.latest.desc": "Display recently created and modified notes in the sidebar panel.",
+  "settings.latest.exclude.name": "Exclude files from Latest",
+  "settings.latest.exclude.desc": "Comma-separated list of filenames to hide from the Latest section (e.g. bookmarks.md, journal.md). Match is against the full vault-relative path.",
   "settings.latestDelete.name": "Enable file deletion",
   "settings.latestDelete.desc": "Show a delete button on Latest items. Files are moved to the system trash.",
   "settings.latestCount.name": "Latest files count",
@@ -377,6 +379,8 @@ var de_default = {
   "settings.tabs.desc": "Zeigt ge\xF6ffnete Editor-Tabs im Seitenbereich an.",
   "settings.latest.name": "Zuletzt-Bereich anzeigen",
   "settings.latest.desc": "Zeigt zuletzt erstellte und ge\xE4nderte Notizen im Seitenbereich an.",
+  "settings.latest.exclude.name": "Dateien aus Zuletzt ausschlie\xDFen",
+  "settings.latest.exclude.desc": "Kommagetrennte Liste von Dateinamen, die im Zuletzt-Bereich ausgeblendet werden (z. B. bookmarks.md, journal.md). Der Abgleich erfolgt gegen den vollst\xE4ndigen vault-relativen Pfad.",
   "settings.latestDelete.name": "Datei l\xF6schen aktivieren",
   "settings.latestDelete.desc": "L\xF6schen-Schaltfl\xE4che bei zuletzt erstellten Dateien anzeigen. Dateien werden in den Papierkorb verschoben.",
   "settings.latestCount.name": "Anzahl zuletzt verwendeter Dateien",
@@ -1136,13 +1140,15 @@ function sanitizePluginData(raw) {
   const latestDeleteEnabled = typeof data.latestDeleteEnabled === "boolean" ? data.latestDeleteEnabled : DEFAULT_DATA.latestDeleteEnabled;
   const tabsSectionEnabled = typeof data.tabsSectionEnabled === "boolean" ? data.tabsSectionEnabled : DEFAULT_DATA.tabsSectionEnabled;
   const latestSectionEnabled = typeof data.latestSectionEnabled === "boolean" ? data.latestSectionEnabled : DEFAULT_DATA.latestSectionEnabled;
+  const latestExcludedFiles = typeof data.latestExcludedFiles === "string" ? data.latestExcludedFiles : DEFAULT_DATA.latestExcludedFiles;
   return {
     collapseState,
     bookmarksFilePath,
     latestFilesCount,
     latestDeleteEnabled,
     tabsSectionEnabled,
-    latestSectionEnabled
+    latestSectionEnabled,
+    latestExcludedFiles
   };
 }
 var DEFAULT_DATA = {
@@ -1151,7 +1157,8 @@ var DEFAULT_DATA = {
   latestFilesCount: 5,
   latestDeleteEnabled: false,
   tabsSectionEnabled: true,
-  latestSectionEnabled: true
+  latestSectionEnabled: true,
+  latestExcludedFiles: ""
 };
 var LaunchpadPlugin = class extends import_obsidian7.Plugin {
   constructor() {
@@ -1425,6 +1432,11 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
   isLatestSectionEnabled() {
     return this.settings.latestSectionEnabled;
   }
+  getLatestExcludedPaths() {
+    return new Set(
+      this.settings.latestExcludedFiles.split(",").map((value) => value.trim()).filter((value) => value.length > 0)
+    );
+  }
   getFilesSnapshot() {
     if (this.latestFilesSnapshotCache && this.latestFilesSnapshotReuseCount > 0) {
       this.latestFilesSnapshotReuseCount -= 1;
@@ -1434,7 +1446,8 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
       }
       return [...snapshot2];
     }
-    const snapshot = this.app.vault.getFiles().filter((file) => file.extension === "md").map((file) => ({
+    const excludedPaths = this.getLatestExcludedPaths();
+    const snapshot = this.app.vault.getFiles().filter((file) => file.extension === "md").filter((file) => !excludedPaths.has(file.path)).map((file) => ({
       title: file.basename,
       path: file.path,
       ctime: file.stat.ctime,
@@ -1551,6 +1564,13 @@ var LaunchpadSettingTab = class extends import_obsidian7.PluginSettingTab {
     new import_obsidian7.Setting(containerEl).setName(t("settings.latest.name")).setDesc(t("settings.latest.desc")).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.latestSectionEnabled).onChange(async (value) => {
         this.plugin.settings.latestSectionEnabled = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      })
+    );
+    new import_obsidian7.Setting(containerEl).setName(t("settings.latest.exclude.name")).setDesc(t("settings.latest.exclude.desc")).addText(
+      (text) => text.setPlaceholder("bookmarks.md, Resources/journal.md").setValue(this.plugin.settings.latestExcludedFiles).onChange(async (value) => {
+        this.plugin.settings.latestExcludedFiles = value;
         await this.plugin.saveSettings();
         await this.plugin.refreshViews();
       })
