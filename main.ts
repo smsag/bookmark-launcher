@@ -1,39 +1,18 @@
 import {
-	App,
 	Menu,
-	Notice,
 	Plugin,
 	TAbstractFile,
 	TFile,
 	TFolder,
 } from "obsidian";
 import { BookmarkStoreManager, DEFAULT_BOOKMARKS_FILE, FOLDER_SEP } from "./BookmarkStore";
-import { BookmarkView, BookmarkViewHost, VIEW_TYPE_BOOKMARK } from "./BookmarkView";
-import { BookmarkStore, LatestFile, OpenTab } from "./types";
-import { CaptureModal } from "./CaptureModal";
-import { SetupModal } from "./SetupModal";
+import { BookmarkView, VIEW_TYPE_BOOKMARK } from "./BookmarkView";
+import { BookmarkStore } from "./types";
+import { LaunchpadHost } from "./LaunchpadHost";
 import { LaunchpadSettingTab } from "./SettingsTab";
 import { LATEST_FILES_COUNT_MAX } from "./utils";
 
 const REFRESH_RETRY_MAX_ATTEMPTS = 6;
-
-interface FileExplorerViewLike {
-	revealInFolder?: (folder: TFolder) => void;
-}
-
-interface WorkspaceLeafWithRoot {
-	id?: string;
-	getRoot?: () => unknown;
-	view: {
-		getViewType(): string;
-		getDisplayText(): string;
-	};
-}
-
-interface AppSettingsApi {
-	open: () => void;
-	openTabById: (id: string) => void;
-}
 
 interface PluginData {
 	collapseState: Record<string, boolean>;
@@ -114,27 +93,17 @@ const DEFAULT_DATA: PluginData = {
 	latestExcludedFiles: "",
 };
 
-export default class LaunchpadPlugin
-	extends Plugin
-	implements BookmarkViewHost
-{
+export default class LaunchpadPlugin extends Plugin {
 	store!: BookmarkStoreManager;
+	private host!: LaunchpadHost;
 	private data!: PluginData;
-	/** File that was active immediately before an obsidian:// bookmark click. */
-	private previousFile: TFile | null = null;
 	/** Pending exponential-backoff retry for refreshViews when iCloud read fails. */
 	private refreshRetryTimer: number | null = null;
 	/** Debounce timer for batching rapid collapse state writes. */
 	private collapseDebounceTimer: number | null = null;
 	/** Debounce timer for workspace-event-triggered refreshes. */
 	private refreshDebounceTimer: number | null = null;
-	/** Cached parsed form of settings.latestExcludedFiles. Null = needs rebuild. */
-	private excludedPathsCache: Set<string> | null = null;
 	private refreshRequestId = 0;
-	private latestFilesSnapshotCache: LatestFile[] | null = null;
-	private latestFilesSnapshotReuseCount = 0;
-	/** Last successfully parsed store snapshot; reused by openCaptureModal. */
-	private lastKnownStore: BookmarkStore | null = null;
 
 	/** Alias so settings tab and host methods share one property name. */
 	get settings(): PluginData {
@@ -147,7 +116,7 @@ export default class LaunchpadPlugin
 
 	/** Invalidates the excluded paths cache. Call when latestExcludedFiles changes. */
 	invalidateExcludedPathsCache(): void {
-		this.excludedPathsCache = null;
+		this.host.invalidateExcludedPathsCache();
 	}
 
 	async onload(): Promise<void> {
@@ -159,15 +128,35 @@ export default class LaunchpadPlugin
 			this.app,
 			this.data.bookmarksFilePath ?? DEFAULT_BOOKMARKS_FILE
 		);
+		this.host = new LaunchpadHost({
+			app: this.app,
+			store: this.store,
+			manifestId: this.manifest.id,
+			getSettings: () => this.settings,
+			saveSettings: () => this.saveSettings(),
+			refreshViews: () => this.refreshViews(),
+			revealPanel: () => this.revealPanel(),
+			getCollapseStateRecord: () => this.data.collapseState,
+			setCollapseStateRecord: (key, collapsed) => {
+				this.data.collapseState[key] = collapsed;
+				if (this.collapseDebounceTimer !== null) {
+					window.clearTimeout(this.collapseDebounceTimer);
+				}
+				this.collapseDebounceTimer = window.setTimeout(async () => {
+					this.collapseDebounceTimer = null;
+					await this.saveSettings();
+				}, 300);
+			},
+		});
 
-		this.registerView(VIEW_TYPE_BOOKMARK, (leaf) => new BookmarkView(leaf, this));
+		this.registerView(VIEW_TYPE_BOOKMARK, (leaf) => new BookmarkView(leaf, this.host));
 
 		this.addRibbonIcon("rocket", "Launchpad", () => this.revealPanel());
 
 		this.addCommand({
 			id: "add-bookmark",
 			name: "Add bookmark",
-			callback: () => this.openCaptureModal(),
+			callback: () => this.host.openCaptureModal(),
 		});
 
 		this.addCommand({
@@ -179,7 +168,7 @@ export default class LaunchpadPlugin
 		this.addCommand({
 			id: "configure-file",
 			name: "Configure bookmarks file location",
-			callback: () => this.openSetupModal(),
+			callback: () => this.host.openSetupModal(),
 		});
 
 		this.addSettingTab(new LaunchpadSettingTab(this.app, this));
@@ -285,7 +274,7 @@ export default class LaunchpadPlugin
 		}
 
 		// Genuinely first launch — ask the user where they want the file.
-		this.openSetupModal();
+		this.host.openSetupModal();
 	}
 
 	/** Ensures the sidebar panel is open and populated. */
@@ -308,270 +297,12 @@ export default class LaunchpadPlugin
 		await leaf.setViewState({ type: VIEW_TYPE_BOOKMARK, active: true });
 	}
 
-	// ── Setup modal ────────────────────────────────────────────────────────
-
-	/** Opens the setup modal to configure the bookmarks file path. */
-	openSetupModal(): void {
-		new SetupModal(
-			this.app,
-			async (chosenPath: string) => {
-				await this.adoptPath(chosenPath);
-				await this.store.ensureFile();
-				await this.revealPanel();
-				// Note: errors propagate back to SetupModal's try/catch, which
-				// displays them in the modal's error element and re-enables the button.
-			},
-			this.data.bookmarksFilePath,
-		).open();
-	}
-
-	/** Opens Obsidian's settings modal on this plugin's settings tab. */
-	openSettings(): void {
-		const settingsApi = (this.app as unknown as { setting?: AppSettingsApi }).setting;
-		if (settingsApi && typeof settingsApi.open === "function") {
-			settingsApi.open();
-			settingsApi.openTabById(this.manifest.id);
-		}
-	}
-
 	/** Persist a confirmed bookmarks file path and point the store at it. */
 	private async adoptPath(path: string): Promise<void> {
 		this.data.bookmarksFilePath = path;
 		await this.saveSettings();
 		this.store.setFilePath(path);
 	}
-
-	// ── BookmarkViewHost ───────────────────────────────────────────────────
-
-	async openCaptureModal(): Promise<void> {
-		// Reuse the last known store snapshot for the folder list so the modal
-		// opens instantly. Fall back to a fresh parse only on first open or
-		// after a parse failure cleared the cache.
-		const storeData = this.lastKnownStore ?? await this.store.parse();
-		// Provide folder options via callback so CaptureModal resolves them
-		// at open time rather than storing a long-lived snapshot.
-		new CaptureModal(
-			this.app,
-			this.store,
-			() => this.store.getFolderOptions(storeData)
-		).open();
-	}
-
-	getCollapseState(): Record<string, boolean> {
-		return this.data.collapseState;
-	}
-
-	async setCollapseState(key: string, collapsed: boolean): Promise<void> {
-		// Update in-memory immediately so re-renders use the latest state.
-		this.data.collapseState[key] = collapsed;
-		// Batch rapid clicks into a single write — avoids sequential disk
-		// writes when a user collapses several folders in quick succession.
-		if (this.collapseDebounceTimer !== null) {
-			window.clearTimeout(this.collapseDebounceTimer);
-		}
-		this.collapseDebounceTimer = window.setTimeout(async () => {
-			this.collapseDebounceTimer = null;
-			await this.saveSettings();
-		}, 300);
-	}
-
-	async reloadBookmarks(): Promise<void> {
-		await this.refreshViews();
-	}
-
-	openBookmarkUrl(url: string): void {
-		// Allowlist URL schemes — reject anything not explicitly safe.
-		// bookmarks.md is user-editable plain text; without this guard a
-		// javascript: URI would execute in Obsidian's Electron renderer.
-
-		// Shared pre-flight: reject any URL containing control characters
-		// (including newlines / null bytes). These can corrupt window.open
-		// behaviour in some Electron versions regardless of scheme.
-		if (/[\x00-\x1f\x7f]/.test(url)) {
-			new Notice("Launchpad: URL contains invalid characters and was not opened.");
-			return;
-		}
-
-		if (url.startsWith("vault://")) {
-			let folderPath = "";
-			try {
-				folderPath = decodeURIComponent(url.slice("vault://".length));
-			} catch {
-				// Malformed percent-encoding in user-edited bookmarks must not crash click handling.
-				new Notice("Launchpad: invalid vault path encoding.");
-				return;
-			}
-			const folder = this.app.vault.getAbstractFileByPath(folderPath);
-			if (!(folder instanceof TFolder)) {
-				new Notice(`Launchpad: folder not found — ${folderPath}`);
-				return;
-			}
-			const leaves = this.app.workspace.getLeavesOfType("file-explorer");
-			if (leaves.length > 0) {
-				try {
-					this.app.workspace.revealLeaf(leaves[0]);
-					// Obsidian does not expose a typed File Explorer API for revealInFolder.
-					const view = leaves[0].view as unknown as FileExplorerViewLike;
-					if (typeof view.revealInFolder === "function") {
-						view.revealInFolder(folder);
-						return;
-					}
-				} catch {
-					// fall through to Notice
-				}
-			}
-			// Mobile (no file-explorer leaf) or internal API renamed/removed.
-			new Notice(`Launchpad: ${folderPath}`);
-		} else if (url.startsWith("note://")) {
-			const notePath = url.slice("note://".length);
-			const file = this.app.metadataCache.getFirstLinkpathDest(notePath, "");
-			if (!file) {
-				new Notice(`Launchpad: note not found — ${notePath}`);
-				return;
-			}
-			void this.app.workspace.getLeaf(false).openFile(file);
-		} else if (url.startsWith("obsidian://")) {
-			this.previousFile = this.app.workspace.getActiveFile();
-			window.open(url);
-			void this.refreshViews();
-		} else if (url.startsWith("https://") || url.startsWith("http://")) {
-			window.open(url, "_blank", "noopener,noreferrer");
-		}
-		// Any other scheme (javascript:, file:, data:, …) is silently ignored.
-	}
-
-	getPreviousFilename(): string | null {
-		return this.previousFile?.basename ?? null;
-	}
-
-	async navigateBack(): Promise<void> {
-		const file = this.previousFile;
-		if (!file) return;
-		// Clear before navigating so the back link is gone on re-render.
-		this.previousFile = null;
-		// Guard: file may have been deleted between capture and click.
-		if (!(this.app.vault.getAbstractFileByPath(file.path) instanceof TFile)) {
-			await this.refreshViews();
-			return;
-		}
-		await this.app.workspace.getLeaf(false).openFile(file);
-		await this.refreshViews();
-	}
-
-	getOpenTabs(): OpenTab[] {
-		const tabs: OpenTab[] = [];
-		this.app.workspace.iterateAllLeaves((leaf) => {
-			const workspaceLeaf = leaf as unknown as WorkspaceLeafWithRoot;
-			if (workspaceLeaf.view.getViewType() === VIEW_TYPE_BOOKMARK) return;
-			const root = workspaceLeaf.getRoot?.();
-			if (root !== this.app.workspace.rootSplit) return;
-			if (!workspaceLeaf.id) return;
-			tabs.push({
-				title: workspaceLeaf.view.getDisplayText(),
-				type: workspaceLeaf.view.getViewType(),
-				leafId: workspaceLeaf.id,
-			});
-		});
-
-		return tabs;
-	}
-
-	isTabsSectionEnabled(): boolean {
-		return this.settings.tabsSectionEnabled;
-	}
-
-	isLatestSectionEnabled(): boolean {
-		return this.settings.latestSectionEnabled;
-	}
-
-	getLatestExcludedPaths(): Set<string> {
-		if (this.excludedPathsCache !== null) return this.excludedPathsCache;
-		this.excludedPathsCache = new Set(
-			this.settings.latestExcludedFiles
-				.split(",")
-				.map((value) => value.trim())
-				.filter((value) => value.length > 0)
-		);
-		return this.excludedPathsCache;
-	}
-
-	private getFilesSnapshot(): LatestFile[] {
-		if (this.latestFilesSnapshotCache && this.latestFilesSnapshotReuseCount > 0) {
-			this.latestFilesSnapshotReuseCount -= 1;
-			const snapshot = this.latestFilesSnapshotCache;
-			if (this.latestFilesSnapshotReuseCount === 0) {
-				this.latestFilesSnapshotCache = null;
-			}
-			return [...snapshot];
-		}
-
-		const excludedPaths = this.getLatestExcludedPaths();
-		const snapshot = this.app.vault
-			.getFiles()
-			.filter((file) => file.extension === "md")
-			.filter((file) => !excludedPaths.has(file.path))
-			.map((file) => ({
-				title: file.basename,
-				path: file.path,
-				ctime: file.stat.ctime,
-				mtime: file.stat.mtime,
-			}));
-
-		// Created and Modified are requested back-to-back during a single render.
-		// Reusing one snapshot avoids scanning/sorting the vault twice.
-		this.latestFilesSnapshotCache = snapshot;
-		this.latestFilesSnapshotReuseCount = 1;
-		return [...snapshot];
-	}
-
-	getLatestCreatedFiles(): LatestFile[] {
-		return this.getFilesSnapshot()
-			.sort((a, b) => b.ctime - a.ctime)
-			.slice(0, this.settings.latestFilesCount);
-	}
-
-	getLatestModifiedFiles(): LatestFile[] {
-		const snapshot = this.getFilesSnapshot();
-		const createdPaths = new Set(
-			[...snapshot]
-				.sort((a, b) => b.ctime - a.ctime)
-				.slice(0, this.settings.latestFilesCount)
-				.map((file) => file.path)
-		);
-		return snapshot
-			.filter((file) => !createdPaths.has(file.path))
-			.sort((a, b) => b.mtime - a.mtime)
-			.slice(0, this.settings.latestFilesCount);
-	}
-
-	openLatestFile(path: string): void {
-		const file = this.app.vault.getAbstractFileByPath(path);
-		if (file instanceof TFile) {
-			void this.app.workspace.getLeaf(false).openFile(file);
-		}
-	}
-
-	async deleteLatestFile(path: string): Promise<void> {
-		const file = this.app.vault.getAbstractFileByPath(path);
-		if (file instanceof TFile) {
-			// true = use system trash where available.
-			await this.app.vault.trash(file, true);
-			await this.refreshViews();
-		}
-	}
-
-	isDeleteEnabled(): boolean {
-		return this.settings.latestDeleteEnabled;
-	}
-
-	focusTab(leafId: string): void {
-		this.app.workspace.iterateAllLeaves((leaf) => {
-			if ((leaf as unknown as WorkspaceLeafWithRoot).id === leafId) {
-				this.app.workspace.setActiveLeaf(leaf, { focus: true });
-			}
-		});
-	}
-
 
 	// ── Panel management ───────────────────────────────────────────────────
 
@@ -675,7 +406,7 @@ export default class LaunchpadPlugin
 			window.clearTimeout(this.refreshRetryTimer);
 			this.refreshRetryTimer = null;
 		}
-		this.lastKnownStore = storeData;
+		this.host.setLastKnownStore(storeData);
 		this.pruneCollapseState(storeData);
 		for (const leaf of leaves) {
 			if (leaf.view instanceof BookmarkView) {

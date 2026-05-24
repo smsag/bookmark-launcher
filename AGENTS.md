@@ -36,9 +36,13 @@ Skipping the `gh release upload` step will cause BRAT installs/updates to fail w
 ## Architecture
 
 ```
-main.ts                  Plugin entry — lifecycle, workspace wiring,
-                         BookmarkViewHost implementation
+main.ts                  Plugin lifecycle only — data management, event wiring,
+                         panel management, refresh orchestration. Instantiates
+                         LaunchpadHost and delegates all BookmarkViewHost calls.
 BookmarkStore.ts         Parse + write the bookmarks file (BookmarkStoreManager)
+LaunchpadHost.ts         BookmarkViewHost implementation — all 18 host methods,
+                         URL handling, Latest file logic, tab collection,
+                         back-navigation state
 BookmarkView.ts          Sidebar panel (ItemView, type: launchpad-view).
                          Exports BookmarkViewHost (composed from CollapseHost,
                          BookmarkHost, NavigationHost, TabsHost, LatestHost)
