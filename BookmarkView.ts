@@ -6,9 +6,20 @@ import { t } from "./i18n";
 function setIconWithFallback(element: HTMLElement, primaryIcon: string, fallbackIcon: string): void {
 	try {
 		setIcon(element, primaryIcon);
+		return;
 	} catch {
 		// Some icon names are not available on older Obsidian builds; fallback keeps rendering intact.
+	}
+	try {
 		setIcon(element, fallbackIcon);
+		return;
+	} catch {
+		// Final fallback avoids throwing during render so sections still appear even without icons.
+	}
+	try {
+		setIcon(element, "file");
+	} catch {
+		// No-op: icon is decorative, rendering the section is more important than the icon glyph.
 	}
 }
 

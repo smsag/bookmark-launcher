@@ -411,18 +411,32 @@ export default class LaunchpadPlugin
 		const workspacePrivate = this.app.workspace as unknown as WorkspacePrivateApi;
 		const root = workspacePrivate.rootSplit;
 		const iterateLeaves = workspacePrivate.iterateLeaves;
-		if (!iterateLeaves || !root) return tabs;
 
-		// iterateAllLeaves includes sidebars — walk rootSplit only to get
-		// main editor tabs, excluding left/right sidebar panels.
-		iterateLeaves((leaf) => {
-			if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK) return;
+		const collectLeaf = (leaf: WorkspaceLeafLike): void => {
 			if (!leaf.id) return;
+			if (!leaf.view) return;
+			if (typeof leaf.view.getViewType !== "function") return;
+			if (typeof leaf.view.getDisplayText !== "function") return;
+			if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK) return;
 			tabs.push({
 				title: leaf.view.getDisplayText(),
 				type: leaf.view.getViewType(),
 				leafId: leaf.id,
 			});
+		};
+
+		if (!iterateLeaves || !root) {
+			// Some Obsidian builds do not expose rootSplit/iterateLeaves; fallback keeps Tabs available.
+			this.app.workspace.iterateAllLeaves((leaf) => {
+				collectLeaf(leaf as unknown as WorkspaceLeafLike);
+			});
+			return tabs;
+		}
+
+		// iterateAllLeaves includes sidebars — walk rootSplit only to get
+		// main editor tabs, excluding left/right sidebar panels.
+		iterateLeaves((leaf) => {
+			collectLeaf(leaf);
 		}, root);
 
 		return tabs;

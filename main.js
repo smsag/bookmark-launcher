@@ -371,8 +371,17 @@ function t(key) {
 function setIconWithFallback(element, primaryIcon, fallbackIcon) {
   try {
     (0, import_obsidian2.setIcon)(element, primaryIcon);
+    return;
   } catch (e) {
+  }
+  try {
     (0, import_obsidian2.setIcon)(element, fallbackIcon);
+    return;
+  } catch (e) {
+  }
+  try {
+    (0, import_obsidian2.setIcon)(element, "file");
+  } catch (e) {
   }
 }
 var VIEW_TYPE_BOOKMARK = "launchpad-view";
@@ -1332,18 +1341,31 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     const workspacePrivate = this.app.workspace;
     const root = workspacePrivate.rootSplit;
     const iterateLeaves = workspacePrivate.iterateLeaves;
-    if (!iterateLeaves || !root)
-      return tabs;
-    iterateLeaves((leaf) => {
-      if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK)
-        return;
+    const collectLeaf = (leaf) => {
       if (!leaf.id)
+        return;
+      if (!leaf.view)
+        return;
+      if (typeof leaf.view.getViewType !== "function")
+        return;
+      if (typeof leaf.view.getDisplayText !== "function")
+        return;
+      if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK)
         return;
       tabs.push({
         title: leaf.view.getDisplayText(),
         type: leaf.view.getViewType(),
         leafId: leaf.id
       });
+    };
+    if (!iterateLeaves || !root) {
+      this.app.workspace.iterateAllLeaves((leaf) => {
+        collectLeaf(leaf);
+      });
+      return tabs;
+    }
+    iterateLeaves((leaf) => {
+      collectLeaf(leaf);
     }, root);
     return tabs;
   }
