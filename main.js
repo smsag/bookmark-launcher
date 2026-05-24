@@ -452,7 +452,12 @@ var BookmarkView = class extends import_obsidian2.ItemView {
         text: t("panel.empty")
       });
     }
-    const openTabs = this.host.getOpenTabs();
+    let openTabs = [];
+    try {
+      openTabs = this.host.getOpenTabs();
+    } catch (error) {
+      console.error("Launchpad: failed to collect open tabs", error);
+    }
     const tabsKey = "__tabs__";
     const tabsCollapsed = (_a2 = collapseState[tabsKey]) != null ? _a2 : false;
     const tabsFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-tabs-folder");
@@ -492,8 +497,14 @@ var BookmarkView = class extends import_obsidian2.ItemView {
         this.renderTabItem(tabsInnerEl, tab);
       }
     }
-    const latestCreated = this.host.getLatestCreatedFiles();
-    const latestModified = this.host.getLatestModifiedFiles();
+    let latestCreated = [];
+    let latestModified = [];
+    try {
+      latestCreated = this.host.getLatestCreatedFiles();
+      latestModified = this.host.getLatestModifiedFiles();
+    } catch (error) {
+      console.error("Launchpad: failed to collect latest files", error);
+    }
     const latestKey = "__latest__";
     const latestCollapsed = (_b = collapseState[latestKey]) != null ? _b : false;
     const latestFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-latest-folder");
@@ -659,7 +670,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       attr: { "aria-hidden": "true" }
     });
     const iconName = tab.type === "markdown" ? "file-text" : tab.type === "pdf" ? "file-type" : tab.type === "canvas" ? "layout-dashboard" : tab.type === "graph" ? "git-fork" : "file";
-    (0, import_obsidian2.setIcon)(iconEl, iconName);
+    setIconWithFallback(iconEl, iconName, "file");
     itemEl.createSpan({ cls: "lp-item-name", text: tab.title });
     itemEl.addEventListener("click", (e) => {
       e.preventDefault();
@@ -1106,6 +1117,15 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     /** Debounce timer for workspace-event-triggered refreshes. */
     this.refreshDebounceTimer = null;
     this.refreshRequestId = 0;
+    this.latestFilesSnapshotCache = null;
+    this.latestFilesSnapshotReuseCount = 0;
+  }
+  /** Alias so settings tab and host methods share one property name. */
+  get settings() {
+    return this.data;
+  }
+  async saveSettings() {
+    await this.saveData(this.data);
   }
   async onload() {
     var _a2;
@@ -1240,22 +1260,16 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   /** Opens Obsidian's settings modal on this plugin's settings tab. */
   openSettings() {
     const settingsApi = this.app.setting;
-    if (!settingsApi)
-      return;
-    settingsApi.open();
-    settingsApi.openTabById(this.manifest.id);
+    if (settingsApi && typeof settingsApi.open === "function") {
+      settingsApi.open();
+      settingsApi.openTabById(this.manifest.id);
+    }
   }
   /** Persist a confirmed bookmarks file path and point the store at it. */
   async adoptPath(path) {
     this.data.bookmarksFilePath = path;
     await this.saveSettings();
     this.store.setFilePath(path);
-  }
-  get settings() {
-    return this.data;
-  }
-  async saveSettings() {
-    await this.saveData(this.data);
   }
   // ── BookmarkViewHost ───────────────────────────────────────────────────
   async openCaptureModal() {
@@ -1369,22 +1383,34 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     }, root);
     return tabs;
   }
-  getLatestCreatedFiles() {
-    return this.app.vault.getFiles().sort((a, b) => b.stat.ctime - a.stat.ctime).slice(0, this.settings.latestFilesCount).map((file) => ({
+  getFilesSnapshot() {
+    if (this.latestFilesSnapshotCache && this.latestFilesSnapshotReuseCount > 0) {
+      this.latestFilesSnapshotReuseCount -= 1;
+      const snapshot2 = this.latestFilesSnapshotCache;
+      if (this.latestFilesSnapshotReuseCount === 0) {
+        this.latestFilesSnapshotCache = null;
+      }
+      return [...snapshot2];
+    }
+    const snapshot = this.app.vault.getFiles().map((file) => ({
       title: file.basename,
       path: file.path,
-      ctime: file.stat.ctime
+      ctime: file.stat.ctime,
+      mtime: file.stat.mtime
     }));
+    this.latestFilesSnapshotCache = snapshot;
+    this.latestFilesSnapshotReuseCount = 1;
+    return [...snapshot];
+  }
+  getLatestCreatedFiles() {
+    return this.getFilesSnapshot().sort((a, b) => b.ctime - a.ctime).slice(0, this.settings.latestFilesCount);
   }
   getLatestModifiedFiles() {
+    const snapshot = this.getFilesSnapshot();
     const createdPaths = new Set(
-      this.getLatestCreatedFiles().map((f) => f.path)
+      [...snapshot].sort((a, b) => b.ctime - a.ctime).slice(0, this.settings.latestFilesCount).map((file) => file.path)
     );
-    return this.app.vault.getFiles().filter((file) => !createdPaths.has(file.path)).sort((a, b) => b.stat.mtime - a.stat.mtime).slice(0, this.settings.latestFilesCount).map((file) => ({
-      title: file.basename,
-      path: file.path,
-      ctime: file.stat.mtime
-    }));
+    return snapshot.filter((file) => !createdPaths.has(file.path)).sort((a, b) => b.mtime - a.mtime).slice(0, this.settings.latestFilesCount);
   }
   openLatestFile(path) {
     const file = this.app.vault.getAbstractFileByPath(path);

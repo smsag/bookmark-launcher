@@ -144,7 +144,12 @@ export class BookmarkView extends ItemView {
 		}
 
 		// ── Tabs section ────────────────────────────────────────────────────
-		const openTabs = this.host.getOpenTabs();
+		let openTabs: OpenTab[] = [];
+		try {
+			openTabs = this.host.getOpenTabs();
+		} catch (error) {
+			console.error("Launchpad: failed to collect open tabs", error);
+		}
 		const tabsKey = "__tabs__";
 		const tabsCollapsed = collapseState[tabsKey] ?? false;
 
@@ -190,8 +195,14 @@ export class BookmarkView extends ItemView {
 		}
 
 		// ── Latest section ──────────────────────────────────────────────────
-		const latestCreated = this.host.getLatestCreatedFiles();
-		const latestModified = this.host.getLatestModifiedFiles();
+		let latestCreated: LatestFile[] = [];
+		let latestModified: LatestFile[] = [];
+		try {
+			latestCreated = this.host.getLatestCreatedFiles();
+			latestModified = this.host.getLatestModifiedFiles();
+		} catch (error) {
+			console.error("Launchpad: failed to collect latest files", error);
+		}
 		const latestKey = "__latest__";
 		const latestCollapsed = collapseState[latestKey] ?? false;
 
@@ -401,7 +412,7 @@ export class BookmarkView extends ItemView {
 			tab.type === "graph"     ? "git-fork" :
 			                           "file";
 
-		setIcon(iconEl, iconName);
+		setIconWithFallback(iconEl, iconName, "file");
 		itemEl.createSpan({ cls: "lp-item-name", text: tab.title });
 
 		itemEl.addEventListener("click", (e) => {

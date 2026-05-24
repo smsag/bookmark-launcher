@@ -30,4 +30,5 @@ export interface LatestFile {
 	title: string;
 	path: string;
 	ctime: number;
+	mtime: number;
 }

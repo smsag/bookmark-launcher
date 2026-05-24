@@ -107,6 +107,17 @@ export default class LaunchpadPlugin
 	/** Debounce timer for workspace-event-triggered refreshes. */
 	private refreshDebounceTimer: number | null = null;
 	private refreshRequestId = 0;
+	private latestFilesSnapshotCache: LatestFile[] | null = null;
+	private latestFilesSnapshotReuseCount = 0;
+
+	/** Alias so settings tab and host methods share one property name. */
+	get settings(): PluginData {
+		return this.data;
+	}
+
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.data);
+	}
 
 	async onload(): Promise<void> {
 		this.data = sanitizePluginData(await this.loadData());
@@ -283,11 +294,11 @@ export default class LaunchpadPlugin
 
 	/** Opens Obsidian's settings modal on this plugin's settings tab. */
 	openSettings(): void {
-		// app.setting is intentionally undocumented; use a narrow runtime guard instead of ts-ignore.
 		const settingsApi = (this.app as unknown as { setting?: AppSettingsApi }).setting;
-		if (!settingsApi) return;
-		settingsApi.open();
-		settingsApi.openTabById(this.manifest.id);
+		if (settingsApi && typeof settingsApi.open === "function") {
+			settingsApi.open();
+			settingsApi.openTabById(this.manifest.id);
+		}
 	}
 
 	/** Persist a confirmed bookmarks file path and point the store at it. */
@@ -295,14 +306,6 @@ export default class LaunchpadPlugin
 		this.data.bookmarksFilePath = path;
 		await this.saveSettings();
 		this.store.setFilePath(path);
-	}
-
-	get settings(): PluginData {
-		return this.data;
-	}
-
-	async saveSettings(): Promise<void> {
-		await this.saveData(this.data);
 	}
 
 	// ── BookmarkViewHost ───────────────────────────────────────────────────
@@ -442,32 +445,50 @@ export default class LaunchpadPlugin
 		return tabs;
 	}
 
-	getLatestCreatedFiles(): LatestFile[] {
-		return this.app.vault
+	private getFilesSnapshot(): LatestFile[] {
+		if (this.latestFilesSnapshotCache && this.latestFilesSnapshotReuseCount > 0) {
+			this.latestFilesSnapshotReuseCount -= 1;
+			const snapshot = this.latestFilesSnapshotCache;
+			if (this.latestFilesSnapshotReuseCount === 0) {
+				this.latestFilesSnapshotCache = null;
+			}
+			return [...snapshot];
+		}
+
+		const snapshot = this.app.vault
 			.getFiles()
-			.sort((a, b) => b.stat.ctime - a.stat.ctime)
-			.slice(0, this.settings.latestFilesCount)
 			.map((file) => ({
 				title: file.basename,
 				path: file.path,
 				ctime: file.stat.ctime,
+				mtime: file.stat.mtime,
 			}));
+
+		// Created and Modified are requested back-to-back during a single render.
+		// Reusing one snapshot avoids scanning/sorting the vault twice.
+		this.latestFilesSnapshotCache = snapshot;
+		this.latestFilesSnapshotReuseCount = 1;
+		return [...snapshot];
+	}
+
+	getLatestCreatedFiles(): LatestFile[] {
+		return this.getFilesSnapshot()
+			.sort((a, b) => b.ctime - a.ctime)
+			.slice(0, this.settings.latestFilesCount);
 	}
 
 	getLatestModifiedFiles(): LatestFile[] {
+		const snapshot = this.getFilesSnapshot();
 		const createdPaths = new Set(
-			this.getLatestCreatedFiles().map((f) => f.path)
+			[...snapshot]
+				.sort((a, b) => b.ctime - a.ctime)
+				.slice(0, this.settings.latestFilesCount)
+				.map((file) => file.path)
 		);
-		return this.app.vault
-			.getFiles()
+		return snapshot
 			.filter((file) => !createdPaths.has(file.path))
-			.sort((a, b) => b.stat.mtime - a.stat.mtime)
-			.slice(0, this.settings.latestFilesCount)
-			.map((file) => ({
-				title: file.basename,
-				path: file.path,
-				ctime: file.stat.mtime,
-			}));
+			.sort((a, b) => b.mtime - a.mtime)
+			.slice(0, this.settings.latestFilesCount);
 	}
 
 	openLatestFile(path: string): void {
