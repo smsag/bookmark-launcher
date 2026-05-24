@@ -1,3 +1,6 @@
+import type { App } from "obsidian";
+import type { LatestHost } from "./BookmarkView";
+
 export interface Bookmark {
 	name: string;
 	url: string;
@@ -31,4 +34,17 @@ export interface LatestFile {
 	path: string;
 	ctime: number;
 	mtime: number;
+}
+
+/** Options for renderLatestSubsection(). */
+export interface RenderLatestSubsectionOptions {
+	app: App;
+	containerEl: HTMLElement;
+	collapseState: Record<string, boolean>;
+	subsectionKey: string;
+	label: string;
+	iconName: string;
+	files: LatestFile[];
+	host: LatestHost;
+	setCollapseState: (key: string, collapsed: boolean) => Promise<void>;
 }

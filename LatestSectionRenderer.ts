@@ -1,26 +1,24 @@
 import { App, setIcon } from "obsidian";
-import { LatestFile } from "./types";
+import { LatestFile, RenderLatestSubsectionOptions } from "./types";
+import type { LatestHost } from "./BookmarkView";
 import { t } from "./i18n";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
-
-type LatestSectionHost = {
-	openLatestFile(path: string): void;
-	deleteLatestFile(path: string): Promise<void>;
-	isDeleteEnabled(): boolean;
-};
+import { attachCollapseHandler, setIconWithFallback } from "./utils";
 
 /** Renders a collapsible Latest subsection (Created or Modified). */
-export function renderLatestSubsection(
-	app: App,
-	containerEl: HTMLElement,
-	collapseState: Record<string, boolean>,
-	subsectionKey: string,
-	label: string,
-	iconName: string,
-	files: LatestFile[],
-	host: LatestSectionHost,
-	setCollapseState: (key: string, collapsed: boolean) => Promise<void>
-): void {
+export function renderLatestSubsection(opts: RenderLatestSubsectionOptions): void {
+	const {
+		app,
+		containerEl,
+		collapseState,
+		subsectionKey,
+		label,
+		iconName,
+		files,
+		host,
+		setCollapseState,
+	} = opts;
+
 	const isCollapsed = collapseState[subsectionKey] ?? false;
 	const subsectionEl = containerEl.createDiv("launchpad-subfolder");
 
@@ -44,13 +42,13 @@ export function renderLatestSubsection(
 	if (isCollapsed) subsectionContentEl.addClass("is-collapsed");
 	const subsectionInnerEl = subsectionContentEl.createDiv("lp-inner");
 
-	subsectionHeaderEl.addEventListener("click", async () => {
-		const nowCollapsed = !subsectionContentEl.hasClass("is-collapsed");
-		subsectionContentEl.toggleClass("is-collapsed", nowCollapsed);
-		subsectionArrowEl.classList.toggle("collapsed", nowCollapsed);
-		subsectionHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
-		await setCollapseState(subsectionKey, nowCollapsed);
-	});
+	attachCollapseHandler(
+		subsectionHeaderEl,
+		subsectionContentEl,
+		subsectionArrowEl,
+		subsectionKey,
+		setCollapseState
+	);
 
 	if (files.length === 0) {
 		subsectionInnerEl.createDiv({ cls: "launchpad-empty", text: t("latest.empty") });
@@ -66,7 +64,7 @@ function renderLatestFileItem(
 	app: App,
 	containerEl: HTMLElement,
 	file: LatestFile,
-	host: LatestSectionHost
+	host: LatestHost
 ): void {
 	const itemEl = containerEl.createEl("div", {
 		cls: "launchpad-item launchpad-latest-item",
@@ -104,29 +102,5 @@ function renderLatestFileItem(
 				host.deleteLatestFile(file.path)
 			).open();
 		});
-	}
-}
-
-export function setIconWithFallback(
-	element: HTMLElement,
-	primaryIcon: string,
-	fallbackIcon: string
-): void {
-	try {
-		setIcon(element, primaryIcon);
-		return;
-	} catch {
-		// fall through
-	}
-	try {
-		setIcon(element, fallbackIcon);
-		return;
-	} catch {
-		// fall through
-	}
-	try {
-		setIcon(element, "file");
-	} catch {
-		// decorative icon only
 	}
 }

@@ -36,15 +36,23 @@ Skipping the `gh release upload` step will cause BRAT installs/updates to fail w
 ## Architecture
 
 ```
-main.ts              Plugin entry — wires everything together
-BookmarkStore.ts     Parse + write the bookmarks file (BookmarkStoreManager)
-BookmarkView.ts      Sidebar panel (ItemView, type: launchpad-view)
-LatestSectionRenderer.ts  Latest Created/Modified subsections renderer
-ConfirmDeleteModal.ts     Delete confirmation modal for Latest files
-CaptureModal.ts      Add-bookmark modal (Modal)
-SetupModal.ts        First-launch / reconfigure file-path modal (Modal)
-types.ts             Interfaces: Bookmark, BookmarkFolder, BookmarkStore, FolderOption
-styles.css           All styles; uses Obsidian CSS variables throughout
+main.ts                  Plugin entry — lifecycle, workspace wiring,
+                         BookmarkViewHost implementation
+BookmarkStore.ts         Parse + write the bookmarks file (BookmarkStoreManager)
+BookmarkView.ts          Sidebar panel (ItemView, type: launchpad-view).
+                         Exports BookmarkViewHost (composed from CollapseHost,
+                         BookmarkHost, NavigationHost, TabsHost, LatestHost)
+LatestSectionRenderer.ts Latest Created/Modified subsection renderer
+ConfirmDeleteModal.ts    Delete confirmation modal for Latest files
+CaptureModal.ts          Add-bookmark modal (Modal)
+SetupModal.ts            First-launch / reconfigure file-path modal (Modal)
+SettingsTab.ts           Plugin settings tab (LaunchpadSettingTab)
+types.ts                 Interfaces: Bookmark, BookmarkFolder, BookmarkStore,
+                         FolderOption, OpenTab, LatestFile,
+                         RenderLatestSubsectionOptions
+utils.ts                 Shared utilities: setIconWithFallback,
+                         attachCollapseHandler, LATEST_FILES_COUNT_MAX
+styles.css               All styles; uses Obsidian CSS variables throughout
 ```
 
 ### Data flow
@@ -57,10 +65,27 @@ styles.css           All styles; uses Obsidian CSS variables throughout
 
 ### Key invariants
 
-- `BookmarkStoreManager` is the **only** writer of the bookmarks file. All other code goes through it.
-- The view is **stateless except for collapse state**. It does not hold a reference to the store between renders.
-- Collapse state is persisted via `plugin.saveData()` as `{ collapseState: Record<string, boolean>, bookmarksFilePath: string | null }`. Collapse keys use `FOLDER_SEP` (`\x1F`): `"Work"` for top-level, `"Work\x1FDesign"` for subfolders. The separator avoids collisions when folder names contain `/`.
-- `BookmarkView` communicates with the plugin only through the `BookmarkViewHost` interface (defined in `BookmarkView.ts`) — no direct import of the plugin class, avoiding circular imports.
+- `BookmarkStoreManager` is the **only** writer of the bookmarks file.
+  All other code goes through it.
+- The view is **stateless except for collapse state**. It does not hold
+  a reference to the store between renders.
+- Collapse state is persisted via `plugin.saveData()` as
+  `{ collapseState: Record<string, boolean>, bookmarksFilePath: string | null }`.
+  Collapse keys use `FOLDER_SEP` (`\x1F`): `"Work"` for top-level,
+  `"Work\x1FDesign"` for subfolders. The separator avoids collisions
+  when folder names contain `/`. System sections use double-underscore
+  keys: `__tabs__`, `__latest__`, `__latest_created__`, `__latest_modified__`.
+- `BookmarkView` communicates with the plugin only through the
+  `BookmarkViewHost` interface (defined in `BookmarkView.ts`) — no
+  direct import of the plugin class, avoiding circular imports.
+  `BookmarkViewHost` is composed from five focused sub-interfaces:
+  `CollapseHost`, `BookmarkHost`, `NavigationHost`, `TabsHost`, `LatestHost`.
+- All collapse handler wiring goes through `attachCollapseHandler()`
+  in `utils.ts` — no inline event listener duplication.
+- `renderLatestSubsection()` takes a single `RenderLatestSubsectionOptions`
+  object — never positional parameters.
+- `LATEST_FILES_COUNT_MAX` is defined once in `utils.ts` and imported
+  wherever validation is needed.
 
 ### Parsing rules (`bookmarks.md`)
 
@@ -97,13 +122,39 @@ The capture modal accepts `https://`, `http://`, `obsidian://`, `vault://`, `not
 | `app.vault.read()` / `modify()` / `create()` / `createFolder()` | `BookmarkStore.ts` | File I/O |
 | `app.vault.getAbstractFileByPath()` | `BookmarkStore.ts`, `main.ts` | File/folder lookup |
 | `app.metadataCache.getFirstLinkpathDest()` | `main.ts` | Resolve `note://` link paths |
+| `app.workspace.iterateAllLeaves()` | `main.ts` | Collect open editor tabs (filtered by rootSplit) |
 | `app.workspace.getLeavesOfType()` | `main.ts` | Iterate open sidebar leaves |
 | `app.workspace.getRightLeaf()` | `main.ts` | Open sidebar panel |
 | `app.workspace.revealLeaf()` / `setActiveLeaf()` | `main.ts` | Focus sidebar panel |
 | `app.workspace.getActiveFile()` | `main.ts` | Capture file for obsidian:// back-navigation |
 | `app.workspace.on("file-menu")` | `main.ts` | "Copy path for Launchpad" context-menu item |
+| `app.vault.trash()` | `main.ts` | Move Latest files to system trash |
+| `app.vault.getFiles()` | `main.ts` | Vault file snapshot for Latest section |
 | `ItemView` | `BookmarkView.ts` | Sidebar panel base class |
 | `Modal` | `CaptureModal.ts`, `SetupModal.ts` | Dialog base class |
+
+### Shared utilities (`utils.ts`)
+
+| Export | Purpose |
+|---|---|
+| `setIconWithFallback(el, primary, fallback)` | Sets a Lucide icon with graceful fallback for older Obsidian builds |
+| `attachCollapseHandler(trigger, content, arrow, key, persist)` | Wires collapse/expand click handler; used by all four collapsible section types |
+| `LATEST_FILES_COUNT_MAX` | Upper bound (50) for the Latest files count setting; imported by `main.ts` and `SettingsTab.ts` |
+
+### Interface hierarchy
+
+`BookmarkViewHost` (BookmarkView.ts) is composed from:
+
+| Sub-interface | Methods | Used by |
+|---|---|---|
+| `CollapseHost` | `getCollapseState`, `setCollapseState` | All section renderers |
+| `BookmarkHost` | `openCaptureModal`, `openSetupModal`, `openSettings`, `reloadBookmarks`, `openBookmarkUrl` | `BookmarkView.ts` |
+| `NavigationHost` | `getPreviousFilename`, `navigateBack` | `BookmarkView.ts` |
+| `TabsHost` | `isTabsSectionEnabled`, `getOpenTabs`, `focusTab` | `BookmarkView.ts` |
+| `LatestHost` | `isLatestSectionEnabled`, `getLatestCreatedFiles`, `getLatestModifiedFiles`, `openLatestFile`, `deleteLatestFile`, `isDeleteEnabled` | `BookmarkView.ts`, `LatestSectionRenderer.ts` |
+
+`LaunchpadPlugin` in `main.ts` implements `BookmarkViewHost` and
+therefore satisfies all five sub-interfaces.
 
 ## MVP constraints (do not expand without discussion)
 
@@ -112,3 +163,5 @@ The capture modal accepts `https://`, `http://`, `obsidian://`, `vault://`, `not
 - No search or filter in the sidebar
 - No drag-and-drop reordering
 - No bookmark import from browser
+- No positional parameter lists longer than 4 arguments — use options
+  objects (see `RenderLatestSubsectionOptions`)

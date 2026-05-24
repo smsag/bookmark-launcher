@@ -28,7 +28,7 @@ __export(main_exports, {
   default: () => LaunchpadPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // BookmarkStore.ts
 var import_obsidian = require("obsidian");
@@ -267,7 +267,7 @@ var BookmarkStoreManager = class {
 };
 
 // BookmarkView.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // i18n/en.json
 var en_default = {
@@ -424,7 +424,7 @@ function t(key) {
 }
 
 // LatestSectionRenderer.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // ConfirmDeleteModal.ts
 var import_obsidian2 = require("obsidian");
@@ -464,9 +464,50 @@ var ConfirmDeleteModal = class extends import_obsidian2.Modal {
   }
 };
 
+// utils.ts
+var import_obsidian3 = require("obsidian");
+var LATEST_FILES_COUNT_MAX = 50;
+function setIconWithFallback(element, primaryIcon, fallbackIcon) {
+  try {
+    (0, import_obsidian3.setIcon)(element, primaryIcon);
+    return;
+  } catch (e) {
+  }
+  try {
+    (0, import_obsidian3.setIcon)(element, fallbackIcon);
+    return;
+  } catch (e) {
+  }
+  try {
+    (0, import_obsidian3.setIcon)(element, "file");
+  } catch (e) {
+  }
+}
+function attachCollapseHandler(triggerEl, contentEl, arrowEl, collapseKey, persist) {
+  triggerEl.addEventListener("click", async () => {
+    const nowCollapsed = !contentEl.hasClass("is-collapsed");
+    contentEl.toggleClass("is-collapsed", nowCollapsed);
+    if (arrowEl)
+      arrowEl.classList.toggle("collapsed", nowCollapsed);
+    triggerEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
+    await persist(collapseKey, nowCollapsed);
+  });
+}
+
 // LatestSectionRenderer.ts
-function renderLatestSubsection(app, containerEl, collapseState, subsectionKey, label, iconName, files, host, setCollapseState) {
+function renderLatestSubsection(opts) {
   var _a2;
+  const {
+    app,
+    containerEl,
+    collapseState,
+    subsectionKey,
+    label,
+    iconName,
+    files,
+    host,
+    setCollapseState
+  } = opts;
   const isCollapsed = (_a2 = collapseState[subsectionKey]) != null ? _a2 : false;
   const subsectionEl = containerEl.createDiv("launchpad-subfolder");
   const subsectionHeaderEl = subsectionEl.createEl("button", {
@@ -488,13 +529,13 @@ function renderLatestSubsection(app, containerEl, collapseState, subsectionKey, 
   if (isCollapsed)
     subsectionContentEl.addClass("is-collapsed");
   const subsectionInnerEl = subsectionContentEl.createDiv("lp-inner");
-  subsectionHeaderEl.addEventListener("click", async () => {
-    const nowCollapsed = !subsectionContentEl.hasClass("is-collapsed");
-    subsectionContentEl.toggleClass("is-collapsed", nowCollapsed);
-    subsectionArrowEl.classList.toggle("collapsed", nowCollapsed);
-    subsectionHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
-    await setCollapseState(subsectionKey, nowCollapsed);
-  });
+  attachCollapseHandler(
+    subsectionHeaderEl,
+    subsectionContentEl,
+    subsectionArrowEl,
+    subsectionKey,
+    setCollapseState
+  );
   if (files.length === 0) {
     subsectionInnerEl.createDiv({ cls: "launchpad-empty", text: t("latest.empty") });
   } else {
@@ -515,7 +556,7 @@ function renderLatestFileItem(app, containerEl, file, host) {
     cls: "lp-item-icon",
     attr: { "aria-hidden": "true" }
   });
-  (0, import_obsidian3.setIcon)(iconEl, "file-text");
+  (0, import_obsidian4.setIcon)(iconEl, "file-text");
   fileLinkEl.createSpan({ cls: "lp-item-name", text: file.title });
   fileLinkEl.addEventListener("click", (e) => {
     e.preventDefault();
@@ -530,7 +571,7 @@ function renderLatestFileItem(app, containerEl, file, host) {
       }
     });
     const trashIconEl = deleteButtonEl.createSpan({ attr: { "aria-hidden": "true" } });
-    (0, import_obsidian3.setIcon)(trashIconEl, "trash-2");
+    (0, import_obsidian4.setIcon)(trashIconEl, "trash-2");
     deleteButtonEl.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -542,26 +583,10 @@ function renderLatestFileItem(app, containerEl, file, host) {
     });
   }
 }
-function setIconWithFallback(element, primaryIcon, fallbackIcon) {
-  try {
-    (0, import_obsidian3.setIcon)(element, primaryIcon);
-    return;
-  } catch (e) {
-  }
-  try {
-    (0, import_obsidian3.setIcon)(element, fallbackIcon);
-    return;
-  } catch (e) {
-  }
-  try {
-    (0, import_obsidian3.setIcon)(element, "file");
-  } catch (e) {
-  }
-}
 
 // BookmarkView.ts
 var VIEW_TYPE_BOOKMARK = "launchpad-view";
-var BookmarkView = class extends import_obsidian4.ItemView {
+var BookmarkView = class extends import_obsidian5.ItemView {
   constructor(leaf, host) {
     super(leaf);
     this.store = { folders: [], uncategorized: [] };
@@ -590,7 +615,6 @@ var BookmarkView = class extends import_obsidian4.ItemView {
     }
   }
   render() {
-    var _a2, _b;
     this.contentEl.empty();
     this.contentEl.addClass("launchpad-content-el");
     const containerEl = this.contentEl.createDiv("launchpad-container");
@@ -601,20 +625,37 @@ var BookmarkView = class extends import_obsidian4.ItemView {
       cls: "launchpad-settings-btn",
       attr: { "aria-label": t("bookmark.settings"), type: "button" }
     });
-    (0, import_obsidian4.setIcon)(settingsButtonEl, "settings-2");
+    (0, import_obsidian5.setIcon)(settingsButtonEl, "settings-2");
     settingsButtonEl.addEventListener("click", () => this.host.openSettings());
     const addButtonEl = headerEl.createEl("button", {
       cls: "launchpad-add-btn",
       attr: { "aria-label": t("bookmark.add"), type: "button" }
     });
-    (0, import_obsidian4.setIcon)(addButtonEl, "plus-circle");
+    (0, import_obsidian5.setIcon)(addButtonEl, "plus-circle");
     addButtonEl.addEventListener("click", () => this.host.openCaptureModal());
     const scrollContainerEl = containerEl.createDiv("launchpad-scroll");
     const collapseState = this.host.getCollapseState();
+    this.renderBookmarkSections(scrollContainerEl, collapseState);
+    if (this.host.isTabsSectionEnabled()) {
+      this.renderTabsSection(scrollContainerEl, collapseState);
+    }
+    if (this.host.isLatestSectionEnabled()) {
+      this.renderLatestSection(scrollContainerEl, collapseState);
+    }
+    this.renderBackNavigation(containerEl);
+  }
+  /** Renders uncategorized bookmarks, all bookmark folders, and the empty state. */
+  renderBookmarkSections(scrollContainerEl, collapseState) {
     if (this.store.uncategorized.length > 0) {
-      const uncategorizedSectionEl = scrollContainerEl.createDiv("launchpad-uncategorized");
+      const uncategorizedSectionEl = scrollContainerEl.createDiv(
+        "launchpad-uncategorized"
+      );
       for (const bookmark of this.store.uncategorized) {
-        this.renderBookmarkItem(uncategorizedSectionEl, bookmark.name, bookmark.url);
+        this.renderBookmarkItem(
+          uncategorizedSectionEl,
+          bookmark.name,
+          bookmark.url
+        );
       }
     }
     for (const folder of this.store.folders) {
@@ -627,135 +668,150 @@ var BookmarkView = class extends import_obsidian4.ItemView {
         cls: "launchpad-reload-btn",
         attr: { type: "button", "aria-label": t("panel.reloadAriaLabel") }
       });
-      const reloadIconEl = reloadButtonEl.createSpan({ attr: { "aria-hidden": "true" } });
+      const reloadIconEl = reloadButtonEl.createSpan({
+        attr: { "aria-hidden": "true" }
+      });
       setIconWithFallback(reloadIconEl, "refresh-cw", "rotate-cw");
       reloadButtonEl.createSpan({ text: t("panel.reload") });
-      reloadButtonEl.addEventListener("click", () => void this.host.reloadBookmarks());
-    }
-    if (this.host.isTabsSectionEnabled()) {
-      let openTabs = [];
-      try {
-        openTabs = this.host.getOpenTabs();
-      } catch (error) {
-        console.error("Launchpad: failed to collect open tabs", error);
-      }
-      const tabsKey = "__tabs__";
-      const tabsCollapsed = (_a2 = collapseState[tabsKey]) != null ? _a2 : false;
-      const tabsFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-tabs-folder");
-      const tabsHeaderEl = tabsFolderEl.createEl("button", {
-        cls: "launchpad-folder-header",
-        attr: {
-          type: "button",
-          "aria-expanded": (!tabsCollapsed).toString()
-        }
-      });
-      const tabsIconEl = tabsHeaderEl.createSpan({
-        cls: "lp-folder-icon",
-        attr: { "aria-hidden": "true" }
-      });
-      setIconWithFallback(tabsIconEl, "layout-grid", "layout-dashboard");
-      tabsHeaderEl.createSpan({ text: t("tabs.folder") });
-      const tabsArrow = tabsHeaderEl.createSpan({
-        cls: "launchpad-folder-arrow" + (tabsCollapsed ? " collapsed" : ""),
-        text: "\u25BE",
-        attr: { "aria-hidden": "true" }
-      });
-      const tabsContentEl = tabsFolderEl.createDiv("launchpad-folder-content");
-      if (tabsCollapsed)
-        tabsContentEl.addClass("is-collapsed");
-      const tabsInnerEl = tabsContentEl.createDiv("lp-inner");
-      tabsHeaderEl.addEventListener("click", async () => {
-        const nowCollapsed = !tabsContentEl.hasClass("is-collapsed");
-        tabsContentEl.toggleClass("is-collapsed", nowCollapsed);
-        tabsArrow.classList.toggle("collapsed", nowCollapsed);
-        tabsHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
-        await this.host.setCollapseState(tabsKey, nowCollapsed);
-      });
-      if (openTabs.length === 0)
-        tabsInnerEl.createDiv({ cls: "launchpad-empty", text: t("tabs.empty") });
-      else
-        for (const tab of openTabs)
-          this.renderTabItem(tabsInnerEl, tab);
-    }
-    if (this.host.isLatestSectionEnabled()) {
-      let latestCreated = [];
-      let latestModified = [];
-      try {
-        latestCreated = this.host.getLatestCreatedFiles();
-        latestModified = this.host.getLatestModifiedFiles();
-      } catch (error) {
-        console.error("Launchpad: failed to collect latest files", error);
-      }
-      const latestKey = "__latest__";
-      const latestCollapsed = (_b = collapseState[latestKey]) != null ? _b : false;
-      const latestFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-latest-folder");
-      const latestHeaderEl = latestFolderEl.createEl("button", {
-        cls: "launchpad-folder-header",
-        attr: {
-          type: "button",
-          "aria-expanded": (!latestCollapsed).toString()
-        }
-      });
-      const latestIconEl = latestHeaderEl.createSpan({
-        cls: "lp-folder-icon",
-        attr: { "aria-hidden": "true" }
-      });
-      setIconWithFallback(latestIconEl, "clock", "history");
-      latestHeaderEl.createSpan({ text: t("latest.folder") });
-      const latestArrow = latestHeaderEl.createSpan({
-        cls: "launchpad-folder-arrow" + (latestCollapsed ? " collapsed" : ""),
-        text: "\u25BE",
-        attr: { "aria-hidden": "true" }
-      });
-      const latestContentEl = latestFolderEl.createDiv("launchpad-folder-content");
-      if (latestCollapsed)
-        latestContentEl.addClass("is-collapsed");
-      const latestInnerEl = latestContentEl.createDiv("lp-inner");
-      latestHeaderEl.addEventListener("click", async () => {
-        const nowCollapsed = !latestContentEl.hasClass("is-collapsed");
-        latestContentEl.toggleClass("is-collapsed", nowCollapsed);
-        latestArrow.classList.toggle("collapsed", nowCollapsed);
-        latestHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
-        await this.host.setCollapseState(latestKey, nowCollapsed);
-      });
-      renderLatestSubsection(
-        this.app,
-        latestInnerEl,
-        collapseState,
-        "__latest_created__",
-        t("latest.created"),
-        "file-plus",
-        latestCreated,
-        this.host,
-        (key, collapsed) => this.host.setCollapseState(key, collapsed)
-      );
-      renderLatestSubsection(
-        this.app,
-        latestInnerEl,
-        collapseState,
-        "__latest_modified__",
-        t("latest.modified"),
-        "file-edit",
-        latestModified,
-        this.host,
-        (key, collapsed) => this.host.setCollapseState(key, collapsed)
+      reloadButtonEl.addEventListener(
+        "click",
+        () => void this.host.reloadBookmarks()
       );
     }
+  }
+  /** Renders the Tabs section into the given scroll container. */
+  renderTabsSection(scrollContainerEl, collapseState) {
+    var _a2;
+    let openTabs = [];
+    try {
+      openTabs = this.host.getOpenTabs();
+    } catch (error) {
+      console.error("Launchpad: failed to collect open tabs", error);
+    }
+    const tabsKey = "__tabs__";
+    const tabsCollapsed = (_a2 = collapseState[tabsKey]) != null ? _a2 : false;
+    const tabsFolderEl = scrollContainerEl.createDiv(
+      "launchpad-folder launchpad-tabs-folder"
+    );
+    const tabsHeaderEl = tabsFolderEl.createEl("button", {
+      cls: "launchpad-folder-header",
+      attr: { type: "button", "aria-expanded": (!tabsCollapsed).toString() }
+    });
+    const tabsIconEl = tabsHeaderEl.createSpan({
+      cls: "lp-folder-icon",
+      attr: { "aria-hidden": "true" }
+    });
+    setIconWithFallback(tabsIconEl, "layout-grid", "layout-dashboard");
+    tabsHeaderEl.createSpan({ text: t("tabs.folder") });
+    const tabsArrowEl = tabsHeaderEl.createSpan({
+      cls: "launchpad-folder-arrow" + (tabsCollapsed ? " collapsed" : ""),
+      text: "\u25BE",
+      attr: { "aria-hidden": "true" }
+    });
+    const tabsContentEl = tabsFolderEl.createDiv("launchpad-folder-content");
+    if (tabsCollapsed)
+      tabsContentEl.addClass("is-collapsed");
+    const tabsInnerEl = tabsContentEl.createDiv("lp-inner");
+    attachCollapseHandler(
+      tabsHeaderEl,
+      tabsContentEl,
+      tabsArrowEl,
+      tabsKey,
+      (key, collapsed) => this.host.setCollapseState(key, collapsed)
+    );
+    if (openTabs.length === 0) {
+      tabsInnerEl.createDiv({ cls: "launchpad-empty", text: t("tabs.empty") });
+    } else {
+      for (const tab of openTabs) {
+        this.renderTabItem(tabsInnerEl, tab);
+      }
+    }
+  }
+  /** Renders the Latest section (Created + Modified subsections). */
+  renderLatestSection(scrollContainerEl, collapseState) {
+    var _a2;
+    let latestCreated = [];
+    let latestModified = [];
+    try {
+      latestCreated = this.host.getLatestCreatedFiles();
+      latestModified = this.host.getLatestModifiedFiles();
+    } catch (error) {
+      console.error("Launchpad: failed to collect latest files", error);
+    }
+    const latestKey = "__latest__";
+    const latestCollapsed = (_a2 = collapseState[latestKey]) != null ? _a2 : false;
+    const latestFolderEl = scrollContainerEl.createDiv(
+      "launchpad-folder launchpad-latest-folder"
+    );
+    const latestHeaderEl = latestFolderEl.createEl("button", {
+      cls: "launchpad-folder-header",
+      attr: { type: "button", "aria-expanded": (!latestCollapsed).toString() }
+    });
+    const latestIconEl = latestHeaderEl.createSpan({
+      cls: "lp-folder-icon",
+      attr: { "aria-hidden": "true" }
+    });
+    setIconWithFallback(latestIconEl, "clock", "history");
+    latestHeaderEl.createSpan({ text: t("latest.folder") });
+    const latestArrowEl = latestHeaderEl.createSpan({
+      cls: "launchpad-folder-arrow" + (latestCollapsed ? " collapsed" : ""),
+      text: "\u25BE",
+      attr: { "aria-hidden": "true" }
+    });
+    const latestContentEl = latestFolderEl.createDiv("launchpad-folder-content");
+    if (latestCollapsed)
+      latestContentEl.addClass("is-collapsed");
+    const latestInnerEl = latestContentEl.createDiv("lp-inner");
+    attachCollapseHandler(
+      latestHeaderEl,
+      latestContentEl,
+      latestArrowEl,
+      latestKey,
+      (key, collapsed) => this.host.setCollapseState(key, collapsed)
+    );
+    renderLatestSubsection({
+      app: this.app,
+      containerEl: latestInnerEl,
+      collapseState,
+      subsectionKey: "__latest_created__",
+      label: t("latest.created"),
+      iconName: "file-plus",
+      files: latestCreated,
+      host: this.host,
+      setCollapseState: (key, collapsed) => this.host.setCollapseState(key, collapsed)
+    });
+    renderLatestSubsection({
+      app: this.app,
+      containerEl: latestInnerEl,
+      collapseState,
+      subsectionKey: "__latest_modified__",
+      label: t("latest.modified"),
+      iconName: "file-edit",
+      files: latestModified,
+      host: this.host,
+      setCollapseState: (key, collapsed) => this.host.setCollapseState(key, collapsed)
+    });
+  }
+  /** Renders the back-navigation link pinned to the panel bottom. */
+  renderBackNavigation(containerEl) {
     const previousFilename = this.host.getPreviousFilename();
-    if (previousFilename !== null) {
-      const backSectionEl = containerEl.createDiv("launchpad-back-section");
-      const backLinkEl = backSectionEl.createEl("a", {
-        cls: "launchpad-back-item",
-        attr: { href: "#" }
-      });
-      const backIconEl = backLinkEl.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
-      (0, import_obsidian4.setIcon)(backIconEl, "arrow-left");
-      backLinkEl.createSpan({ cls: "lp-item-name", text: previousFilename });
-      backLinkEl.addEventListener("click", (e) => {
-        e.preventDefault();
-        this.host.navigateBack();
-      });
-    }
+    if (previousFilename === null)
+      return;
+    const backSectionEl = containerEl.createDiv("launchpad-back-section");
+    const backLinkEl = backSectionEl.createEl("a", {
+      cls: "launchpad-back-item",
+      attr: { href: "#" }
+    });
+    const backIconEl = backLinkEl.createSpan({
+      cls: "lp-item-icon",
+      attr: { "aria-hidden": "true" }
+    });
+    (0, import_obsidian5.setIcon)(backIconEl, "arrow-left");
+    backLinkEl.createSpan({ cls: "lp-item-name", text: previousFilename });
+    backLinkEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.host.navigateBack();
+    });
   }
   renderFolder(containerEl, folder, collapseState, parentFolderName) {
     var _a2;
@@ -768,7 +824,7 @@ var BookmarkView = class extends import_obsidian4.ItemView {
       attr: { type: "button", "aria-expanded": (!isCollapsed).toString() }
     });
     const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
-    (0, import_obsidian4.setIcon)(folderIconEl, "layers");
+    (0, import_obsidian5.setIcon)(folderIconEl, "layers");
     headerEl.createSpan({ text: folder.name });
     const arrowEl = headerEl.createSpan({
       cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),
@@ -779,13 +835,13 @@ var BookmarkView = class extends import_obsidian4.ItemView {
     if (isCollapsed)
       contentEl.addClass("is-collapsed");
     const innerEl = contentEl.createDiv("lp-inner");
-    headerEl.addEventListener("click", async () => {
-      const nowCollapsed = !contentEl.hasClass("is-collapsed");
-      contentEl.toggleClass("is-collapsed", nowCollapsed);
-      arrowEl.classList.toggle("collapsed", nowCollapsed);
-      headerEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
-      await this.host.setCollapseState(collapseKey, nowCollapsed);
-    });
+    attachCollapseHandler(
+      headerEl,
+      contentEl,
+      arrowEl,
+      collapseKey,
+      (key, collapsed) => this.host.setCollapseState(key, collapsed)
+    );
     for (const bookmark of folder.bookmarks)
       this.renderBookmarkItem(innerEl, bookmark.name, bookmark.url);
     for (const subfolder of folder.subfolders)
@@ -821,7 +877,7 @@ var BookmarkView = class extends import_obsidian4.ItemView {
       attr: { "aria-hidden": "true" }
     });
     const iconName = isNote || isObsidian ? "file-text" : isVault ? "library" : "globe";
-    (0, import_obsidian4.setIcon)(itemIconEl, iconName);
+    (0, import_obsidian5.setIcon)(itemIconEl, iconName);
     itemEl.createSpan({ cls: "lp-item-name", text: name });
     itemEl.addEventListener("click", (e) => {
       e.preventDefault();
@@ -831,7 +887,7 @@ var BookmarkView = class extends import_obsidian4.ItemView {
 };
 
 // CaptureModal.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 var NEW_FOLDER_VALUE = "__new__";
 var UNCATEGORIZED_VALUE = "__uncategorized__";
 var URL_PREFIXES = ["https://", "http://", "obsidian://", "vault://", "note://"];
@@ -848,7 +904,7 @@ function normalizeUrl(val) {
     return "note://" + val.slice(2, -2).trim();
   return val;
 }
-var CaptureModal = class extends import_obsidian5.Modal {
+var CaptureModal = class extends import_obsidian6.Modal {
   constructor(app, store, getFolderOptions) {
     super(app);
     this.store = store;
@@ -858,7 +914,7 @@ var CaptureModal = class extends import_obsidian5.Modal {
     const { contentEl } = this;
     const folderOptions = this.getFolderOptions();
     contentEl.addClass("launchpad-capture-modal");
-    new import_obsidian5.Setting(contentEl).setName(t("modal.heading")).setHeading();
+    new import_obsidian6.Setting(contentEl).setName(t("modal.heading")).setHeading();
     let nameValue = "";
     let urlValue = "";
     let folderValue = folderOptions.length > 0 ? folderOptions[0].value : UNCATEGORIZED_VALUE;
@@ -1007,8 +1063,8 @@ var CaptureModal = class extends import_obsidian5.Modal {
 };
 
 // SetupModal.ts
-var import_obsidian6 = require("obsidian");
-var SetupModal = class extends import_obsidian6.Modal {
+var import_obsidian7 = require("obsidian");
+var SetupModal = class extends import_obsidian7.Modal {
   constructor(app, onConfirm, currentPath) {
     super(app);
     this.onConfirm = onConfirm;
@@ -1019,7 +1075,7 @@ var SetupModal = class extends import_obsidian6.Modal {
     const { contentEl } = this;
     const isReconfigure = this.currentPath !== null;
     contentEl.addClass("launchpad-setup-modal");
-    new import_obsidian6.Setting(contentEl).setName(isReconfigure ? t("setup.heading.reconfigure") : t("setup.heading.new")).setHeading();
+    new import_obsidian7.Setting(contentEl).setName(isReconfigure ? t("setup.heading.reconfigure") : t("setup.heading.new")).setHeading();
     contentEl.createEl("p", {
       cls: "launchpad-setup-description",
       text: isReconfigure ? t("setup.description.reconfigure") : t("setup.description.new")
@@ -1044,7 +1100,7 @@ var SetupModal = class extends import_obsidian6.Modal {
       text: "",
       attr: { id: "lp-sm-path-err", "aria-live": "polite" }
     });
-    const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian6.TFolder && f.path !== "/").sort((a, b) => a.path.localeCompare(b.path)).slice(0, 8);
+    const folders = this.app.vault.getAllLoadedFiles().filter((f) => f instanceof import_obsidian7.TFolder && f.path !== "/").sort((a, b) => a.path.localeCompare(b.path)).slice(0, 8);
     if (folders.length > 0) {
       const hintRow = pathField.createDiv("launchpad-setup-hint");
       hintRow.createSpan({ cls: "launchpad-setup-hint-label", text: t("setup.folders.label") });
@@ -1104,7 +1160,7 @@ var SetupModal = class extends import_obsidian6.Modal {
         isReconfigure ? t("setup.confirm.saving") : t("setup.confirm.creating")
       );
       try {
-        await this.onConfirm((0, import_obsidian6.normalizePath)(pathValue.trim()));
+        await this.onConfirm((0, import_obsidian7.normalizePath)(pathValue.trim()));
         this.close();
       } catch (e) {
         errorEl.textContent = e instanceof Error ? e.message : String(e);
@@ -1124,9 +1180,59 @@ var SetupModal = class extends import_obsidian6.Modal {
   }
 };
 
+// SettingsTab.ts
+var import_obsidian8 = require("obsidian");
+var LaunchpadSettingTab = class extends import_obsidian8.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    new import_obsidian8.Setting(containerEl).setName(t("settings.tabs.name")).setDesc(t("settings.tabs.desc")).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.tabsSectionEnabled).onChange(async (value) => {
+        this.plugin.settings.tabsSectionEnabled = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      })
+    );
+    new import_obsidian8.Setting(containerEl).setName(t("settings.latest.name")).setDesc(t("settings.latest.desc")).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.latestSectionEnabled).onChange(async (value) => {
+        this.plugin.settings.latestSectionEnabled = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      })
+    );
+    new import_obsidian8.Setting(containerEl).setName(t("settings.latest.exclude.name")).setDesc(t("settings.latest.exclude.desc")).addText(
+      (text) => text.setPlaceholder("bookmarks.md, Resources/journal.md").setValue(this.plugin.settings.latestExcludedFiles).onChange(async (value) => {
+        this.plugin.settings.latestExcludedFiles = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      })
+    );
+    new import_obsidian8.Setting(containerEl).setName(t("settings.latestCount.name")).setDesc(t("settings.latestCount.desc")).addText(
+      (text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.latestFilesCount)).onChange(async (value) => {
+        const n = parseInt(value, 10);
+        if (!isNaN(n) && n > 0 && n <= LATEST_FILES_COUNT_MAX) {
+          this.plugin.settings.latestFilesCount = n;
+          await this.plugin.saveSettings();
+          await this.plugin.refreshViews();
+        }
+      })
+    );
+    new import_obsidian8.Setting(containerEl).setName(t("settings.latestDelete.name")).setDesc(t("settings.latestDelete.desc")).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.latestDeleteEnabled).onChange(async (value) => {
+        this.plugin.settings.latestDeleteEnabled = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      })
+    );
+  }
+};
+
 // main.ts
 var REFRESH_RETRY_MAX_ATTEMPTS = 6;
-var LATEST_FILES_COUNT_MAX = 50;
 function sanitizePluginData(raw) {
   const data = raw && typeof raw === "object" ? raw : {};
   const collapseStateRaw = data.collapseState && typeof data.collapseState === "object" ? data.collapseState : {};
@@ -1160,7 +1266,7 @@ var DEFAULT_DATA = {
   latestSectionEnabled: true,
   latestExcludedFiles: ""
 };
-var LaunchpadPlugin = class extends import_obsidian7.Plugin {
+var LaunchpadPlugin = class extends import_obsidian9.Plugin {
   constructor() {
     super(...arguments);
     /** File that was active immediately before an obsidian:// bookmark click. */
@@ -1206,26 +1312,26 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
     });
     this.addSettingTab(new LaunchpadSettingTab(this.app, this));
     const onBookmarksFileModify = (file) => {
-      if (file instanceof import_obsidian7.TFile && file.path === this.store.getFilePath())
+      if (file instanceof import_obsidian9.TFile && file.path === this.store.getFilePath())
         this.refreshViews();
     };
     this.registerEvent(this.app.vault.on("modify", onBookmarksFileModify));
     const onBookmarksFileCreate = (file) => {
-      if (file instanceof import_obsidian7.TFile && file.path === this.store.getFilePath())
+      if (file instanceof import_obsidian9.TFile && file.path === this.store.getFilePath())
         this.refreshViews();
     };
     this.registerEvent(this.app.vault.on("create", onBookmarksFileCreate));
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         const path = this.store.getFilePath();
-        if (file instanceof import_obsidian7.TFile && (file.path === path || oldPath === path)) {
+        if (file instanceof import_obsidian9.TFile && (file.path === path || oldPath === path)) {
           this.refreshViews();
         }
       })
     );
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
-        if (!(file instanceof import_obsidian7.TFolder))
+        if (!(file instanceof import_obsidian9.TFolder))
           return;
         const launchpadPath = "vault://" + file.path.split("/").map(encodeURIComponent).join("/");
         menu.addItem(
@@ -1271,7 +1377,7 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
       return;
     }
     const legacyFile = this.app.vault.getAbstractFileByPath(DEFAULT_BOOKMARKS_FILE);
-    if (legacyFile instanceof import_obsidian7.TFile) {
+    if (legacyFile instanceof import_obsidian9.TFile) {
       await this.adoptPath(DEFAULT_BOOKMARKS_FILE);
       await this.openAndRefresh();
       return;
@@ -1345,7 +1451,7 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
   }
   openBookmarkUrl(url) {
     if (/[\x00-\x1f\x7f]/.test(url)) {
-      new import_obsidian7.Notice("Launchpad: URL contains invalid characters and was not opened.");
+      new import_obsidian9.Notice("Launchpad: URL contains invalid characters and was not opened.");
       return;
     }
     if (url.startsWith("vault://")) {
@@ -1353,12 +1459,12 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
       try {
         folderPath = decodeURIComponent(url.slice("vault://".length));
       } catch (e) {
-        new import_obsidian7.Notice("Launchpad: invalid vault path encoding.");
+        new import_obsidian9.Notice("Launchpad: invalid vault path encoding.");
         return;
       }
       const folder = this.app.vault.getAbstractFileByPath(folderPath);
-      if (!(folder instanceof import_obsidian7.TFolder)) {
-        new import_obsidian7.Notice(`Launchpad: folder not found \u2014 ${folderPath}`);
+      if (!(folder instanceof import_obsidian9.TFolder)) {
+        new import_obsidian9.Notice(`Launchpad: folder not found \u2014 ${folderPath}`);
         return;
       }
       const leaves = this.app.workspace.getLeavesOfType("file-explorer");
@@ -1373,12 +1479,12 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
         } catch (e) {
         }
       }
-      new import_obsidian7.Notice(`Launchpad: ${folderPath}`);
+      new import_obsidian9.Notice(`Launchpad: ${folderPath}`);
     } else if (url.startsWith("note://")) {
       const notePath = url.slice("note://".length);
       const file = this.app.metadataCache.getFirstLinkpathDest(notePath, "");
       if (!file) {
-        new import_obsidian7.Notice(`Launchpad: note not found \u2014 ${notePath}`);
+        new import_obsidian9.Notice(`Launchpad: note not found \u2014 ${notePath}`);
         return;
       }
       void this.app.workspace.getLeaf(false).openFile(file);
@@ -1399,7 +1505,7 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
     if (!file)
       return;
     this.previousFile = null;
-    if (!(this.app.vault.getAbstractFileByPath(file.path) instanceof import_obsidian7.TFile)) {
+    if (!(this.app.vault.getAbstractFileByPath(file.path) instanceof import_obsidian9.TFile)) {
       await this.refreshViews();
       return;
     }
@@ -1469,13 +1575,13 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
   }
   openLatestFile(path) {
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian7.TFile) {
+    if (file instanceof import_obsidian9.TFile) {
       void this.app.workspace.getLeaf(false).openFile(file);
     }
   }
   async deleteLatestFile(path) {
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian7.TFile) {
+    if (file instanceof import_obsidian9.TFile) {
       await this.app.vault.trash(file, true);
       await this.refreshViews();
     }
@@ -1544,53 +1650,5 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
         leaf.view.setStore(storeData);
       }
     }
-  }
-};
-var LaunchpadSettingTab = class extends import_obsidian7.PluginSettingTab {
-  constructor(app, plugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
-  display() {
-    const { containerEl } = this;
-    containerEl.empty();
-    new import_obsidian7.Setting(containerEl).setName(t("settings.tabs.name")).setDesc(t("settings.tabs.desc")).addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.tabsSectionEnabled).onChange(async (value) => {
-        this.plugin.settings.tabsSectionEnabled = value;
-        await this.plugin.saveSettings();
-        await this.plugin.refreshViews();
-      })
-    );
-    new import_obsidian7.Setting(containerEl).setName(t("settings.latest.name")).setDesc(t("settings.latest.desc")).addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.latestSectionEnabled).onChange(async (value) => {
-        this.plugin.settings.latestSectionEnabled = value;
-        await this.plugin.saveSettings();
-        await this.plugin.refreshViews();
-      })
-    );
-    new import_obsidian7.Setting(containerEl).setName(t("settings.latest.exclude.name")).setDesc(t("settings.latest.exclude.desc")).addText(
-      (text) => text.setPlaceholder("bookmarks.md, Resources/journal.md").setValue(this.plugin.settings.latestExcludedFiles).onChange(async (value) => {
-        this.plugin.settings.latestExcludedFiles = value;
-        await this.plugin.saveSettings();
-        await this.plugin.refreshViews();
-      })
-    );
-    new import_obsidian7.Setting(containerEl).setName(t("settings.latestCount.name")).setDesc(t("settings.latestCount.desc")).addText(
-      (text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.latestFilesCount)).onChange(async (value) => {
-        const n = parseInt(value, 10);
-        if (!isNaN(n) && n > 0 && n <= LATEST_FILES_COUNT_MAX) {
-          this.plugin.settings.latestFilesCount = n;
-          await this.plugin.saveSettings();
-          await this.plugin.refreshViews();
-        }
-      })
-    );
-    new import_obsidian7.Setting(containerEl).setName(t("settings.latestDelete.name")).setDesc(t("settings.latestDelete.desc")).addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.latestDeleteEnabled).onChange(async (value) => {
-        this.plugin.settings.latestDeleteEnabled = value;
-        await this.plugin.saveSettings();
-        await this.plugin.refreshViews();
-      })
-    );
   }
 };
