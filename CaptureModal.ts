@@ -7,9 +7,16 @@ const NEW_FOLDER_VALUE = "__new__";
 const UNCATEGORIZED_VALUE = "__uncategorized__";
 const URL_PREFIXES = ["https://", "http://", "obsidian://", "vault://", "note://"];
 
+/** Returns true when the URL starts with one of Launchpad's allowlisted prefixes. */
+function isAllowedUrl(value: string): boolean {
+	return URL_PREFIXES.some((prefix) => value.startsWith(prefix));
+}
+
 /** Returns true for [[wiki link]] syntax, which the modal accepts as shorthand for note:// links. */
 function isWikiLink(val: string): boolean {
-	return val.startsWith("[[") && val.endsWith("]]") && val.length > 4;
+	if (!(val.startsWith("[[") && val.endsWith("]]"))) return false;
+	// Empty wiki links normalize to note:// and should be rejected at validation time.
+	return val.slice(2, -2).trim().length > 0;
 }
 
 /** Normalizes [[wiki link]] input to the stored note:// scheme. Plain URLs are returned as-is. */
@@ -141,7 +148,7 @@ export class CaptureModal extends Modal {
 
 		const updateSaveBtn = () => {
 			const nameOk = nameValue.trim().length > 0;
-			const urlOk = URL_PREFIXES.some((p) => urlValue.trim().startsWith(p))
+			const urlOk = isAllowedUrl(urlValue.trim())
 				|| isWikiLink(urlValue.trim());
 			const folderOk =
 				folderValue !== NEW_FOLDER_VALUE ||
@@ -158,7 +165,7 @@ export class CaptureModal extends Modal {
 
 		urlInput.addEventListener("input", () => {
 			urlValue = urlInput.value;
-			const valid = URL_PREFIXES.some((p) => urlValue.trim().startsWith(p))
+			const valid = isAllowedUrl(urlValue.trim())
 				|| isWikiLink(urlValue.trim());
 			urlErrorEl.textContent = valid
 				? ""
@@ -182,7 +189,7 @@ export class CaptureModal extends Modal {
 				? ""
 				: folderValue;
 
-			if (!name || !URL_PREFIXES.some((p) => url.startsWith(p))) {
+			if (!name || !isAllowedUrl(url)) {
 				saveBtn.disabled = false;
 				return;
 			}

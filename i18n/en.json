@@ -24,6 +24,15 @@
   "tabs.empty": "No tabs open.",
   "tabs.ariaLabel": "Switch to tab",
   "latest.folder": "Latest",
+  "latest.created": "Created",
+  "latest.modified": "Modified",
   "latest.empty": "No files found.",
-  "latest.ariaLabel": "Open file"
+  "latest.ariaLabel": "Open file",
+  "latest.delete.ariaLabel": "Delete file",
+  "latest.delete.confirmTitle": "Delete file",
+  "latest.delete.confirmMessage": "Move \"{filename}\" to system trash?",
+  "latest.delete.confirm": "Delete",
+  "latest.delete.cancel": "Cancel",
+  "settings.latestDelete.name": "Enable file deletion",
+  "settings.latestDelete.desc": "Show a delete button on Latest items. Files are moved to the system trash."
 }

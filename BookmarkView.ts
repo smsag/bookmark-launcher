@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
+import { App, ItemView, Modal, WorkspaceLeaf, setIcon } from "obsidian";
 import { BookmarkFolder, BookmarkStore, LatestFile, OpenTab } from "./types";
 import { FOLDER_SEP } from "./BookmarkStore";
 import { t } from "./i18n";
@@ -24,9 +24,15 @@ export interface BookmarkViewHost {
 	/** Focuses the tab with the given leafId. */
 	focusTab(leafId: string): void;
 	/** Returns most recently created files, newest first. */
-	getLatestFiles(): LatestFile[];
+	getLatestCreatedFiles(): LatestFile[];
+	/** Returns most recently modified files, newest first, excluding latest created. */
+	getLatestModifiedFiles(): LatestFile[];
 	/** Opens a latest file in the active leaf. */
 	openLatestFile(path: string): void;
+	/** Deletes a latest file by path, moving it to system trash. */
+	deleteLatestFile(path: string): Promise<void>;
+	/** Whether delete affordance for latest files is enabled. */
+	isDeleteEnabled(): boolean;
 }
 
 export class BookmarkView extends ItemView {
@@ -61,60 +67,57 @@ export class BookmarkView extends ItemView {
 
 	setLoading(isLoading: boolean): void {
 		if (isLoading) {
-			// iOS/iCloud parse retries can take seconds; show explicit loading
-			// instead of the empty-state message to avoid false data-loss signals.
+			// iCloud hydration retries can take seconds; keep a loading state visible to avoid false empty-state signals.
 			this.contentEl.empty();
 			this.contentEl.createDiv({ cls: "launchpad-loading", text: t("panel.loading") });
 		}
-		// if false: caller will immediately follow with setStore(), which re-renders
 	}
 
+	/** Renders the full Launchpad panel from the current store snapshot and UI state. */
 	private render(): void {
-		// A child div is required — height: 100% on contentEl itself doesn't
-		// resolve correctly against a flex-determined parent.
+		// A child wrapper is required because contentEl height does not resolve reliably from a flex parent on all Obsidian platforms.
 		this.contentEl.empty();
 		this.contentEl.addClass("launchpad-content-el");
-		const container = this.contentEl.createDiv("launchpad-container");
-		container.setAttribute("role", "navigation");
-		container.setAttribute("aria-label", "Launchpad");
+		const containerEl = this.contentEl.createDiv("launchpad-container");
+		containerEl.setAttribute("role", "navigation");
+		containerEl.setAttribute("aria-label", "Launchpad");
 
-		const header = container.createDiv("launchpad-header");
-		header.createSpan({ text: t("panel.title") });
-		const settingsBtn = header.createEl("button", {
+		const headerEl = containerEl.createDiv("launchpad-header");
+		headerEl.createSpan({ text: t("panel.title") });
+		const settingsButtonEl = headerEl.createEl("button", {
 			cls: "launchpad-settings-btn",
 			attr: { "aria-label": t("bookmark.settings"), type: "button" },
 		});
-		setIcon(settingsBtn, "settings-2");
-		settingsBtn.addEventListener("click", () => this.host.openSettings());
+		setIcon(settingsButtonEl, "settings-2");
+		settingsButtonEl.addEventListener("click", () => this.host.openSettings());
 
-		const addBtn = header.createEl("button", {
+		const addButtonEl = headerEl.createEl("button", {
 			cls: "launchpad-add-btn",
 			attr: { "aria-label": t("bookmark.add"), type: "button" },
 		});
-		setIcon(addBtn, "plus-circle");
-		addBtn.addEventListener("click", () => this.host.openCaptureModal());
+		setIcon(addButtonEl, "plus-circle");
+		addButtonEl.addEventListener("click", () => this.host.openCaptureModal());
 
-		// Scrollable content area
-		const scrollEl = container.createDiv("launchpad-scroll");
+		const scrollContainerEl = containerEl.createDiv("launchpad-scroll");
 
 		const collapseState = this.host.getCollapseState();
 
 		if (this.store.uncategorized.length > 0) {
-			const section = scrollEl.createDiv("launchpad-uncategorized");
-			for (const bm of this.store.uncategorized) {
-				this.renderBookmarkItem(section, bm.name, bm.url);
+			const uncategorizedSectionEl = scrollContainerEl.createDiv("launchpad-uncategorized");
+			for (const bookmark of this.store.uncategorized) {
+				this.renderBookmarkItem(uncategorizedSectionEl, bookmark.name, bookmark.url);
 			}
 		}
 
 		for (const folder of this.store.folders) {
-			this.renderFolder(scrollEl, folder, collapseState, null);
+			this.renderFolder(scrollContainerEl, folder, collapseState, null);
 		}
 
 		if (
 			this.store.folders.length === 0 &&
 			this.store.uncategorized.length === 0
 		) {
-			scrollEl.createDiv({
+			scrollContainerEl.createDiv({
 				cls: "launchpad-empty",
 				text: t("panel.empty"),
 			});
@@ -125,7 +128,7 @@ export class BookmarkView extends ItemView {
 		const tabsKey = "__tabs__";
 		const tabsCollapsed = collapseState[tabsKey] ?? false;
 
-		const tabsFolderEl = scrollEl.createDiv("launchpad-folder launchpad-tabs-folder");
+		const tabsFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-tabs-folder");
 
 		const tabsHeaderEl = tabsFolderEl.createEl("button", {
 			cls: "launchpad-folder-header",
@@ -167,11 +170,12 @@ export class BookmarkView extends ItemView {
 		}
 
 		// ── Latest section ──────────────────────────────────────────────────
-		const latestFiles = this.host.getLatestFiles();
+		const latestCreated = this.host.getLatestCreatedFiles();
+		const latestModified = this.host.getLatestModifiedFiles();
 		const latestKey = "__latest__";
 		const latestCollapsed = collapseState[latestKey] ?? false;
 
-		const latestFolderEl = scrollEl.createDiv("launchpad-folder launchpad-latest-folder");
+		const latestFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-latest-folder");
 
 		const latestHeaderEl = latestFolderEl.createEl("button", {
 			cls: "launchpad-folder-header",
@@ -204,55 +208,116 @@ export class BookmarkView extends ItemView {
 			await this.host.setCollapseState(latestKey, nowCollapsed);
 		});
 
-		if (latestFiles.length === 0) {
-			latestInnerEl.createDiv({ cls: "launchpad-empty", text: t("latest.empty") });
-		} else {
-			for (const file of latestFiles) {
-				this.renderLatestFileItem(latestInnerEl, file);
-			}
-		}
+		this.renderLatestSubsection(
+			latestInnerEl,
+			collapseState,
+			"__latest_created__",
+			t("latest.created"),
+			"file-plus",
+			latestCreated
+		);
+		this.renderLatestSubsection(
+			latestInnerEl,
+			collapseState,
+			"__latest_modified__",
+			t("latest.modified"),
+			"file-edit",
+			latestModified
+		);
 
-		// Back link — pinned to the bottom-left of the view
+		// Keep back navigation pinned to the bottom regardless of list scroll height.
 		const previousFilename = this.host.getPreviousFilename();
 		if (previousFilename !== null) {
-			const backSection = container.createDiv("launchpad-back-section");
-			const backLink = backSection.createEl("a", {
+			const backSectionEl = containerEl.createDiv("launchpad-back-section");
+			const backLinkEl = backSectionEl.createEl("a", {
 				cls: "launchpad-back-item",
 				attr: { href: "#", title: `${t("back.ariaLabel")} ${previousFilename}` },
 			});
-			const backIconEl = backLink.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
+			const backIconEl = backLinkEl.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
 			setIcon(backIconEl, "arrow-left");
-			backLink.createSpan({ cls: "lp-item-name", text: previousFilename });
-			backLink.addEventListener("click", (e) => {
+			backLinkEl.createSpan({ cls: "lp-item-name", text: previousFilename });
+			backLinkEl.addEventListener("click", (e) => {
 				e.preventDefault();
 				this.host.navigateBack();
 			});
 		}
 	}
 
+	/** Renders a collapsible subsection inside the Latest folder. */
+	private renderLatestSubsection(
+		containerEl: HTMLElement,
+		collapseState: Record<string, boolean>,
+		subsectionKey: string,
+		label: string,
+		iconName: string,
+		files: LatestFile[]
+	): void {
+		const isCollapsed = collapseState[subsectionKey] ?? false;
+		const subsectionEl = containerEl.createDiv("launchpad-subfolder");
+
+		const subsectionHeaderEl = subsectionEl.createEl("button", {
+			cls: "launchpad-subfolder-header",
+			attr: {
+				type: "button",
+				"aria-expanded": (!isCollapsed).toString(),
+			},
+		});
+		const subsectionIconEl = subsectionHeaderEl.createSpan({
+			cls: "lp-folder-icon",
+			attr: { "aria-hidden": "true" },
+		});
+		setIcon(subsectionIconEl, iconName);
+		subsectionHeaderEl.createSpan({ text: label });
+		const subsectionArrowEl = subsectionHeaderEl.createSpan({
+			cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),
+			text: "▾",
+			attr: { "aria-hidden": "true" },
+		});
+
+		const subsectionContentEl = subsectionEl.createDiv("launchpad-subfolder-content");
+		if (isCollapsed) subsectionContentEl.addClass("is-collapsed");
+		const subsectionInnerEl = subsectionContentEl.createDiv("lp-inner");
+
+		subsectionHeaderEl.addEventListener("click", async () => {
+			const nowCollapsed = !subsectionContentEl.hasClass("is-collapsed");
+			subsectionContentEl.toggleClass("is-collapsed", nowCollapsed);
+			subsectionArrowEl.classList.toggle("collapsed", nowCollapsed);
+			subsectionHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
+			await this.host.setCollapseState(subsectionKey, nowCollapsed);
+		});
+
+		if (files.length === 0) {
+			subsectionInnerEl.createDiv({ cls: "launchpad-empty", text: t("latest.empty") });
+		} else {
+			for (const file of files) {
+				this.renderLatestFileItem(subsectionInnerEl, file);
+			}
+		}
+	}
+
+	/** Renders a bookmark folder or subfolder branch with persisted collapse state. */
 	private renderFolder(
-		parent: HTMLElement,
+		containerEl: HTMLElement,
 		folder: BookmarkFolder,
 		collapseState: Record<string, boolean>,
-		parentName: string | null
+		parentFolderName: string | null
 	): void {
-		const key = parentName
-			? `${parentName}${FOLDER_SEP}${folder.name}`
+		const collapseKey = parentFolderName
+			? `${parentFolderName}${FOLDER_SEP}${folder.name}`
 			: folder.name;
-		const isCollapsed = collapseState[key] ?? false;
+		const isCollapsed = collapseState[collapseKey] ?? false;
 
-		const folderEl = parent.createDiv(
-			parentName ? "launchpad-subfolder" : "launchpad-folder"
+		const folderEl = containerEl.createDiv(
+			parentFolderName ? "launchpad-subfolder" : "launchpad-folder"
 		);
 
-		const headerCls = parentName
+		const headerClassName = parentFolderName
 			? "launchpad-subfolder-header"
 			: "launchpad-folder-header";
 
-		// Use <button> so Enter/Space work for keyboard users; aria-expanded
-		// reflects collapse state for screen readers.
+		// Use a button element so keyboard activation and aria-expanded are handled correctly.
 		const headerEl = folderEl.createEl("button", {
-			cls: headerCls,
+			cls: headerClassName,
 			attr: {
 				type: "button",
 				"aria-expanded": (!isCollapsed).toString(),
@@ -261,43 +326,41 @@ export class BookmarkView extends ItemView {
 		const folderIconEl = headerEl.createSpan({ cls: "lp-folder-icon", attr: { "aria-hidden": "true" } });
 		setIcon(folderIconEl, "layers");
 		headerEl.createSpan({ text: folder.name });
-		// Arrow is last — pushed to the right edge via margin-left: auto in CSS.
-		// aria-hidden: decorative; folder name is the accessible label.
-		const arrow = headerEl.createSpan({
+		const arrowEl = headerEl.createSpan({
 			cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),
 			text: "▾",
 			attr: { "aria-hidden": "true" },
 		});
 
 		const contentEl = folderEl.createDiv(
-			parentName
+			parentFolderName
 				? "launchpad-subfolder-content"
 				: "launchpad-folder-content"
 		);
 		if (isCollapsed) contentEl.addClass("is-collapsed");
 
-		// Grid-template-rows animation requires a single direct child wrapper.
 		const innerEl = contentEl.createDiv("lp-inner");
 
 		headerEl.addEventListener("click", async () => {
 			const nowCollapsed = !contentEl.hasClass("is-collapsed");
 			contentEl.toggleClass("is-collapsed", nowCollapsed);
-			arrow.classList.toggle("collapsed", nowCollapsed);
+			arrowEl.classList.toggle("collapsed", nowCollapsed);
 			headerEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
-			await this.host.setCollapseState(key, nowCollapsed);
+			await this.host.setCollapseState(collapseKey, nowCollapsed);
 		});
 
-		for (const bm of folder.bookmarks) {
-			this.renderBookmarkItem(innerEl, bm.name, bm.url);
+		for (const bookmark of folder.bookmarks) {
+			this.renderBookmarkItem(innerEl, bookmark.name, bookmark.url);
 		}
 
-		for (const sub of folder.subfolders) {
-			this.renderFolder(innerEl, sub, collapseState, folder.name);
+		for (const subfolder of folder.subfolders) {
+			this.renderFolder(innerEl, subfolder, collapseState, folder.name);
 		}
 	}
 
-	private renderTabItem(parent: HTMLElement, tab: OpenTab): void {
-		const item = parent.createEl("a", {
+	/** Renders one open-tab entry in the Tabs section. */
+	private renderTabItem(containerEl: HTMLElement, tab: OpenTab): void {
+		const itemEl = containerEl.createEl("a", {
 			cls: "launchpad-item launchpad-tab-item",
 			attr: {
 				href: "#",
@@ -306,7 +369,7 @@ export class BookmarkView extends ItemView {
 			},
 		});
 
-		const iconEl = item.createSpan({
+		const iconEl = itemEl.createSpan({
 			cls: "lp-item-icon",
 			attr: { "aria-hidden": "true" },
 		});
@@ -319,48 +382,79 @@ export class BookmarkView extends ItemView {
 			                           "file";
 
 		setIcon(iconEl, iconName);
-		item.createSpan({ cls: "lp-item-name", text: tab.title });
+		itemEl.createSpan({ cls: "lp-item-name", text: tab.title });
 
-		item.addEventListener("click", (e) => {
+		itemEl.addEventListener("click", (e) => {
 			e.preventDefault();
 			this.host.focusTab(tab.leafId);
 		});
 	}
 
-	private renderLatestFileItem(parent: HTMLElement, file: LatestFile): void {
-		const item = parent.createEl("a", {
+	/** Renders one latest-file row including optional delete affordance. */
+	private renderLatestFileItem(containerEl: HTMLElement, file: LatestFile): void {
+		const itemEl = containerEl.createEl("div", {
 			cls: "launchpad-item launchpad-latest-item",
 			attr: {
-				href: "#",
 				title: file.path,
+			},
+		});
+
+		const fileLinkEl = itemEl.createEl("a", {
+			cls: "launchpad-item-link",
+			attr: {
+				href: "#",
 				"aria-label": `${t("latest.ariaLabel")}: ${file.title}`,
 			},
 		});
-		const iconEl = item.createSpan({
+		const iconEl = fileLinkEl.createSpan({
 			cls: "lp-item-icon",
 			attr: { "aria-hidden": "true" },
 		});
 		setIcon(iconEl, "file-text");
-		item.createSpan({ cls: "lp-item-name", text: file.title });
-		item.addEventListener("click", (e) => {
+		fileLinkEl.createSpan({ cls: "lp-item-name", text: file.title });
+		fileLinkEl.addEventListener("click", (e) => {
 			e.preventDefault();
 			this.host.openLatestFile(file.path);
 		});
+
+		if (this.host.isDeleteEnabled()) {
+			const deleteButtonEl = itemEl.createEl("button", {
+				cls: "launchpad-delete-btn",
+				attr: {
+					type: "button",
+					"aria-label": `${t("latest.delete.ariaLabel")}: ${file.title}`,
+				},
+			});
+			const trashIconEl = deleteButtonEl.createSpan({
+				attr: { "aria-hidden": "true" },
+			});
+			setIcon(trashIconEl, "trash-2");
+			deleteButtonEl.addEventListener("click", (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				new ConfirmDeleteModal(
+					this.app,
+					file.title,
+					() => this.host.deleteLatestFile(file.path)
+				).open();
+			});
+		}
 	}
 
+	/** Renders one bookmark row in uncategorized, folder, or subfolder lists. */
 	private renderBookmarkItem(
-		parent: HTMLElement,
+		containerEl: HTMLElement,
 		name: string,
 		url: string
 	): void {
-		const item = parent.createEl("a", {
+		const itemEl = containerEl.createEl("a", {
 			cls: "launchpad-item",
 			attr: { href: "#", title: url },
 		});
 		const isVault = url.startsWith("vault://");
 		const isNote = url.startsWith("note://");
 		const isObsidian = url.startsWith("obsidian://");
-		const itemIconEl = item.createSpan({
+		const itemIconEl = itemEl.createSpan({
 			cls: isNote ? "lp-item-icon lp-item-icon--note"
 				: isVault ? "lp-item-icon lp-item-icon--vault"
 				: isObsidian ? "lp-item-icon lp-item-icon--obsidian"
@@ -372,10 +466,58 @@ export class BookmarkView extends ItemView {
 			isVault              ? "library"   :   // folder navigation
 			                       "globe";        // external web link
 		setIcon(itemIconEl, iconName);
-		item.createSpan({ cls: "lp-item-name", text: name });
-		item.addEventListener("click", (e) => {
+		itemEl.createSpan({ cls: "lp-item-name", text: name });
+		itemEl.addEventListener("click", (e) => {
 			e.preventDefault();
 			this.host.openBookmarkUrl(url);
 		});
+	}
+}
+
+class ConfirmDeleteModal extends Modal {
+	private filename: string;
+	private onConfirm: () => Promise<void> | void;
+
+	constructor(app: App, filename: string, onConfirm: () => Promise<void> | void) {
+		super(app);
+		this.filename = filename;
+		this.onConfirm = onConfirm;
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		contentEl.addClass("launchpad-confirm-modal");
+
+		contentEl.createEl("h3", {
+			text: t("latest.delete.confirmTitle"),
+		});
+		contentEl.createEl("p", {
+			text: t("latest.delete.confirmMessage").replace("{filename}", this.filename),
+		});
+
+		const actions = contentEl.createDiv("launchpad-capture-actions");
+
+		const cancelBtn = actions.createEl("button", {
+			attr: { type: "button" },
+			text: t("latest.delete.cancel"),
+		});
+		const confirmBtn = actions.createEl("button", {
+			cls: "mod-warning",
+			attr: { type: "button" },
+			text: t("latest.delete.confirm"),
+		});
+
+		cancelBtn.addEventListener("click", () => this.close());
+		confirmBtn.addEventListener("click", () => {
+			// Keep modal closing deterministic while still surfacing async failures in logs.
+			void Promise.resolve(this.onConfirm()).catch((error) => {
+				console.error("Launchpad: failed to delete latest file", error);
+			});
+			this.close();
+		});
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
 	}
 }

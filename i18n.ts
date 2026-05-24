@@ -2,8 +2,14 @@ import en from "./i18n/en.json";
 import de from "./i18n/de.json";
 
 type StringKey = keyof typeof en;
+type LocaleStrings = Record<StringKey, string>;
+const enStrings: LocaleStrings = en;
+const deStrings: LocaleStrings = de;
 
-const locales: Record<string, Partial<Record<StringKey, string>>> = { en, de };
+const locales: Record<string, LocaleStrings> = {
+	en: enStrings,
+	de: deStrings,
+};
 
 function getLocale(): string {
 	// Obsidian stores the user's chosen language in localStorage under "language".
@@ -12,8 +18,8 @@ function getLocale(): string {
 }
 
 const locale = getLocale();
-const strings: Partial<Record<StringKey, string>> = locales[locale] ?? en;
+const strings: LocaleStrings = locales[locale] ?? enStrings;
 
 export function t(key: StringKey): string {
-	return strings[key] ?? en[key];
+	return strings[key];
 }

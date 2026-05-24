@@ -24,6 +24,15 @@
   "tabs.empty": "Keine Tabs geöffnet.",
   "tabs.ariaLabel": "Zu Tab wechseln",
   "latest.folder": "Zuletzt erstellt",
+  "latest.created": "Erstellt",
+  "latest.modified": "Zuletzt geändert",
   "latest.empty": "Keine Dateien gefunden.",
-  "latest.ariaLabel": "Datei öffnen"
+  "latest.ariaLabel": "Datei öffnen",
+  "latest.delete.ariaLabel": "Datei löschen",
+  "latest.delete.confirmTitle": "Datei löschen",
+  "latest.delete.confirmMessage": "\"{filename}\" in den Papierkorb verschieben?",
+  "latest.delete.confirm": "Löschen",
+  "latest.delete.cancel": "Abbrechen",
+  "settings.latestDelete.name": "Datei löschen aktivieren",
+  "settings.latestDelete.desc": "Löschen-Schaltfläche bei zuletzt erstellten Dateien anzeigen. Dateien werden in den Papierkorb verschoben."
 }

@@ -342,6 +342,7 @@
 
 /* Setup Modal */
 
+/* uncertain: verify .modal-content is provided by Obsidian's modal DOM, not plugin TypeScript class bindings */
 .launchpad-setup-modal .modal-content {
 	padding: 16px 20px;
 	max-width: 420px;
@@ -386,6 +387,7 @@
 
 /* Capture Modal */
 
+/* uncertain: verify .modal-content is provided by Obsidian's modal DOM, not plugin TypeScript class bindings */
 .launchpad-capture-modal .modal-content {
 	padding: 16px 20px;
 }
@@ -440,30 +442,87 @@
 }
 /* Tabs folder — independent scroll so bookmarks above stay visible */
 .launchpad-tabs-folder .launchpad-folder-content {
-        max-height: 160px;
-        overflow-y: auto;
-}
-
-.launchpad-tabs-folder .launchpad-folder-content::-webkit-scrollbar {
-        width: 4px;
-}
-
-.launchpad-tabs-folder .launchpad-folder-content::-webkit-scrollbar-thumb {
-        background-color: var(--scrollbar-thumb-bg);
-        border-radius: 2px;
-}
-
-/* Latest folder — independent scroll so bookmarks above stay visible */
-.launchpad-latest-folder .launchpad-folder-content {
 	max-height: 160px;
 	overflow-y: auto;
 }
 
-.launchpad-latest-folder .launchpad-folder-content::-webkit-scrollbar {
+.launchpad-tabs-folder .launchpad-folder-content::-webkit-scrollbar {
 	width: 4px;
 }
 
-.launchpad-latest-folder .launchpad-folder-content::-webkit-scrollbar-thumb {
+.launchpad-tabs-folder .launchpad-folder-content::-webkit-scrollbar-thumb {
 	background-color: var(--scrollbar-thumb-bg);
 	border-radius: 2px;
+}
+
+/* Latest subsections — independent scroll for Created and Modified */
+.launchpad-latest-folder .launchpad-subfolder-content {
+	max-height: 160px;
+	overflow-y: auto;
+}
+
+.launchpad-latest-folder .launchpad-subfolder-content::-webkit-scrollbar {
+	width: 4px;
+}
+
+.launchpad-latest-folder .launchpad-subfolder-content::-webkit-scrollbar-thumb {
+	background-color: var(--scrollbar-thumb-bg);
+	border-radius: 2px;
+}
+
+/* Item is now a flex row */
+.launchpad-latest-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+/* Link takes all available space */
+.launchpad-item-link {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	text-decoration: none;
+	border-bottom: none;
+	color: inherit;
+	min-width: 0;
+}
+
+.launchpad-item-link .lp-item-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Trash button — hidden by default, revealed on row hover */
+.launchpad-delete-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	background: none;
+	border: none;
+	border-radius: 4px;
+	color: var(--icon-color);
+	cursor: default;
+	opacity: 0;
+	transition: opacity 120ms ease, color 120ms ease;
+	flex-shrink: 0;
+}
+
+.launchpad-latest-item:hover .launchpad-delete-btn {
+	opacity: 1;
+}
+
+.launchpad-delete-btn:hover {
+	color: var(--text-error);
+}
+
+.launchpad-delete-btn svg {
+	width: 14px;
+	height: 14px;
+	stroke-width: 1.75;
 }

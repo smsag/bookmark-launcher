@@ -1,24 +1,41 @@
 # Dependencies
 node_modules/
 
-# Build artifacts
-*.js.map
+# Build output — distribute via GitHub Releases, not source control
+main.js
+
+# Source maps
+*.map
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Plugin runtime data (user-specific, written by Obsidian)
+data.json
 
 # macOS
 .DS_Store
 
+# Windows
+Thumbs.db
+
 # Local development overrides
 .env
 
-# Spec / planning documents (keep out of source control)
+# Editor
+.vscode/
+.idea/
+*.iml
+
+# Package manager — project uses npm/package-lock.json
+yarn.lock
+
+# Claude Code local memory
+.claude/
+
+# Spec / planning documents
 SPEC.md
 spec.md
 *-spec.md
 *-plan.md
 PLAN.md
-
-# Editor
-.vscode/settings.json
-
-# Claude Code local memory
-.claude/

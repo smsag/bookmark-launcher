@@ -14,18 +14,84 @@ import { BookmarkView, BookmarkViewHost, VIEW_TYPE_BOOKMARK } from "./BookmarkVi
 import { LatestFile, OpenTab } from "./types";
 import { CaptureModal } from "./CaptureModal";
 import { SetupModal } from "./SetupModal";
+import { t } from "./i18n";
+
+const REFRESH_RETRY_MAX_ATTEMPTS = 6;
+
+interface WorkspacePrivateApi {
+	rootSplit?: unknown;
+	iterateLeaves?: (callback: (leaf: WorkspaceLeafLike) => void, root: unknown) => void;
+}
+
+interface WorkspaceLeafLike {
+	id?: string;
+	view: {
+		getViewType(): string;
+		getDisplayText(): string;
+	};
+}
+
+interface FileExplorerViewLike {
+	revealInFolder?: (folder: TFolder) => void;
+}
+
+interface AppSettingsApi {
+	open: () => void;
+	openTabById: (id: string) => void;
+}
 
 interface PluginData {
 	collapseState: Record<string, boolean>;
 	/** Vault-relative path to the bookmarks file. Null = not yet configured. */
 	bookmarksFilePath: string | null;
 	latestFilesCount: number;
+	latestDeleteEnabled: boolean;
+}
+
+/**
+ * Coerces persisted plugin data into a safe, fully-typed shape.
+ */
+function sanitizePluginData(raw: unknown): PluginData {
+	const data = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
+	const collapseStateRaw =
+		data.collapseState && typeof data.collapseState === "object"
+			? data.collapseState as Record<string, unknown>
+			: {};
+	const collapseState: Record<string, boolean> = {};
+	for (const [key, value] of Object.entries(collapseStateRaw)) {
+		if (typeof value === "boolean") collapseState[key] = value;
+	}
+
+	const bookmarksFilePath =
+		typeof data.bookmarksFilePath === "string"
+			? data.bookmarksFilePath
+			: null;
+
+	const latestFilesCount =
+		typeof data.latestFilesCount === "number"
+		&& Number.isInteger(data.latestFilesCount)
+		&& data.latestFilesCount > 0
+			? data.latestFilesCount
+			: DEFAULT_DATA.latestFilesCount;
+
+	const latestDeleteEnabled =
+		typeof data.latestDeleteEnabled === "boolean"
+			? data.latestDeleteEnabled
+			: DEFAULT_DATA.latestDeleteEnabled;
+
+	return {
+		collapseState,
+		bookmarksFilePath,
+		latestFilesCount,
+		latestDeleteEnabled,
+	};
 }
 
 const DEFAULT_DATA: PluginData = {
 	collapseState: {},
 	bookmarksFilePath: null,
 	latestFilesCount: 5,
+	latestDeleteEnabled: false,
 };
 
 export default class LaunchpadPlugin
@@ -40,15 +106,10 @@ export default class LaunchpadPlugin
 	private refreshRetryTimer: number | null = null;
 	/** Debounce timer for workspace-event-triggered refreshes. */
 	private refreshDebounceTimer: number | null = null;
+	private refreshRequestId = 0;
 
 	async onload(): Promise<void> {
-		this.data = Object.assign({}, DEFAULT_DATA, await this.loadData());
-		if (
-			!Number.isInteger(this.data.latestFilesCount)
-			|| this.data.latestFilesCount <= 0
-		) {
-			this.data.latestFilesCount = DEFAULT_DATA.latestFilesCount;
-		}
+		this.data = sanitizePluginData(await this.loadData());
 
 		// Initialise the store with whatever path we have so far (may be null →
 		// falls back to the default constant; we'll update it after setup).
@@ -222,10 +283,11 @@ export default class LaunchpadPlugin
 
 	/** Opens Obsidian's settings modal on this plugin's settings tab. */
 	openSettings(): void {
-		// @ts-ignore — app.setting is not typed in the public Obsidian API
-		this.app.setting.open();
-		// @ts-ignore
-		this.app.setting.openTabById(this.manifest.id);
+		// app.setting is intentionally undocumented; use a narrow runtime guard instead of ts-ignore.
+		const settingsApi = (this.app as unknown as { setting?: AppSettingsApi }).setting;
+		if (!settingsApi) return;
+		settingsApi.open();
+		settingsApi.openTabById(this.manifest.id);
 	}
 
 	/** Persist a confirmed bookmarks file path and point the store at it. */
@@ -279,7 +341,14 @@ export default class LaunchpadPlugin
 		}
 
 		if (url.startsWith("vault://")) {
-			const folderPath = decodeURIComponent(url.slice("vault://".length));
+			let folderPath = "";
+			try {
+				folderPath = decodeURIComponent(url.slice("vault://".length));
+			} catch {
+				// Malformed percent-encoding in user-edited bookmarks must not crash click handling.
+				new Notice("Launchpad: invalid vault path encoding.");
+				return;
+			}
 			const folder = this.app.vault.getAbstractFileByPath(folderPath);
 			if (!(folder instanceof TFolder)) {
 				new Notice(`Launchpad: folder not found — ${folderPath}`);
@@ -289,7 +358,8 @@ export default class LaunchpadPlugin
 			if (leaves.length > 0) {
 				try {
 					this.app.workspace.revealLeaf(leaves[0]);
-					const view = leaves[0].view as any;
+					// Obsidian does not expose a typed File Explorer API for revealInFolder.
+					const view = leaves[0].view as unknown as FileExplorerViewLike;
 					if (typeof view.revealInFolder === "function") {
 						view.revealInFolder(folder);
 						return;
@@ -307,11 +377,11 @@ export default class LaunchpadPlugin
 				new Notice(`Launchpad: note not found — ${notePath}`);
 				return;
 			}
-			this.app.workspace.getLeaf(false).openFile(file);
+			void this.app.workspace.getLeaf(false).openFile(file);
 		} else if (url.startsWith("obsidian://")) {
 			this.previousFile = this.app.workspace.getActiveFile();
 			window.open(url);
-			this.refreshViews();
+			void this.refreshViews();
 		} else if (url.startsWith("https://") || url.startsWith("http://")) {
 			window.open(url, "_blank", "noopener,noreferrer");
 		}
@@ -338,12 +408,16 @@ export default class LaunchpadPlugin
 
 	getOpenTabs(): OpenTab[] {
 		const tabs: OpenTab[] = [];
-		const root = (this.app.workspace as any).rootSplit;
+		const workspacePrivate = this.app.workspace as unknown as WorkspacePrivateApi;
+		const root = workspacePrivate.rootSplit;
+		const iterateLeaves = workspacePrivate.iterateLeaves;
+		if (!iterateLeaves || !root) return tabs;
 
 		// iterateAllLeaves includes sidebars — walk rootSplit only to get
 		// main editor tabs, excluding left/right sidebar panels.
-		(this.app.workspace as any).iterateLeaves((leaf: any) => {
+		iterateLeaves((leaf) => {
 			if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK) return;
+			if (!leaf.id) return;
 			tabs.push({
 				title: leaf.view.getDisplayText(),
 				type: leaf.view.getViewType(),
@@ -354,7 +428,7 @@ export default class LaunchpadPlugin
 		return tabs;
 	}
 
-	getLatestFiles(): LatestFile[] {
+	getLatestCreatedFiles(): LatestFile[] {
 		return this.app.vault
 			.getFiles()
 			.sort((a, b) => b.stat.ctime - a.stat.ctime)
@@ -366,16 +440,45 @@ export default class LaunchpadPlugin
 			}));
 	}
 
+	getLatestModifiedFiles(): LatestFile[] {
+		const createdPaths = new Set(
+			this.getLatestCreatedFiles().map((f) => f.path)
+		);
+		return this.app.vault
+			.getFiles()
+			.filter((file) => !createdPaths.has(file.path))
+			.sort((a, b) => b.stat.mtime - a.stat.mtime)
+			.slice(0, this.settings.latestFilesCount)
+			.map((file) => ({
+				title: file.basename,
+				path: file.path,
+				ctime: file.stat.mtime,
+			}));
+	}
+
 	openLatestFile(path: string): void {
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (file instanceof TFile) {
-			this.app.workspace.getLeaf(false).openFile(file);
+			void this.app.workspace.getLeaf(false).openFile(file);
 		}
+	}
+
+	async deleteLatestFile(path: string): Promise<void> {
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (file instanceof TFile) {
+			// true = use system trash where available.
+			await this.app.vault.trash(file, true);
+			await this.refreshViews();
+		}
+	}
+
+	isDeleteEnabled(): boolean {
+		return this.settings.latestDeleteEnabled;
 	}
 
 	focusTab(leafId: string): void {
 		this.app.workspace.iterateAllLeaves((leaf) => {
-			if ((leaf as any).id === leafId) {
+			if ((leaf as unknown as WorkspaceLeafLike).id === leafId) {
 				this.app.workspace.setActiveLeaf(leaf, { focus: true });
 			}
 		});
@@ -408,6 +511,7 @@ export default class LaunchpadPlugin
 	}
 
 	async refreshViews(retryCount = 0): Promise<void> {
+		const requestId = ++this.refreshRequestId;
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
 		if (leaves.length === 0) return;
 		// While iOS/iCloud hydration retries are in progress, render a loading
@@ -424,12 +528,20 @@ export default class LaunchpadPlugin
 			// File not yet readable (e.g. iCloud stub not yet downloaded on iOS).
 			// vault modify/create events don't fire when iCloud hydrates a stub,
 			// so retry with exponential backoff (6 attempts, ~63 s total).
-			if (retryCount < 6) {
+			if (retryCount < REFRESH_RETRY_MAX_ATTEMPTS) {
+				// Multiple refresh failures can stack timers; clear before rescheduling the next retry.
+				if (this.refreshRetryTimer !== null) {
+					window.clearTimeout(this.refreshRetryTimer);
+				}
 				this.refreshRetryTimer = window.setTimeout(
 					() => this.refreshViews(retryCount + 1),
 					1000 * Math.pow(2, retryCount)
 				);
 			}
+			return;
+		}
+		if (requestId !== this.refreshRequestId) {
+			// A newer refresh completed while this one was parsing; discard stale render state.
 			return;
 		}
 		// Successful read — cancel any pending retry.
@@ -471,6 +583,19 @@ class LaunchpadSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings();
 							await this.plugin.refreshViews();
 						}
+					})
+			);
+
+		new Setting(containerEl)
+			.setName(t("settings.latestDelete.name"))
+			.setDesc(t("settings.latestDelete.desc"))
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.latestDeleteEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.latestDeleteEnabled = value;
+						await this.plugin.saveSettings();
+						await this.plugin.refreshViews();
 					})
 			);
 	}
