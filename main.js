@@ -1207,6 +1207,7 @@ var LaunchpadSettingTab = class extends import_obsidian8.PluginSettingTab {
     new import_obsidian8.Setting(containerEl).setName(t("settings.latest.exclude.name")).setDesc(t("settings.latest.exclude.desc")).addText(
       (text) => text.setPlaceholder("bookmarks.md, Resources/journal.md").setValue(this.plugin.settings.latestExcludedFiles).onChange(async (value) => {
         this.plugin.settings.latestExcludedFiles = value;
+        this.plugin.invalidateExcludedPathsCache();
         await this.plugin.saveSettings();
         await this.plugin.refreshViews();
       })
@@ -1290,8 +1291,11 @@ var LaunchpadPlugin = class extends import_obsidian9.Plugin {
     return this.data;
   }
   async saveSettings() {
-    this.excludedPathsCache = null;
     await this.saveData(this.data);
+  }
+  /** Invalidates the excluded paths cache. Call when latestExcludedFiles changes. */
+  invalidateExcludedPathsCache() {
+    this.excludedPathsCache = null;
   }
   async onload() {
     var _a2;

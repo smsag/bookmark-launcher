@@ -142,10 +142,12 @@ export default class LaunchpadPlugin
 	}
 
 	async saveSettings(): Promise<void> {
-		// Invalidate the excluded paths cache whenever settings are persisted,
-		// since latestExcludedFiles may have changed.
-		this.excludedPathsCache = null;
 		await this.saveData(this.data);
+	}
+
+	/** Invalidates the excluded paths cache. Call when latestExcludedFiles changes. */
+	invalidateExcludedPathsCache(): void {
+		this.excludedPathsCache = null;
 	}
 
 	async onload(): Promise<void> {

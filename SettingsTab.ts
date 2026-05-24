@@ -54,6 +54,7 @@ export class LaunchpadSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.latestExcludedFiles)
 					.onChange(async (value) => {
 						this.plugin.settings.latestExcludedFiles = value;
+						this.plugin.invalidateExcludedPathsCache();
 						await this.plugin.saveSettings();
 						await this.plugin.refreshViews();
 					})
