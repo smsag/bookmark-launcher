@@ -5,12 +5,15 @@ An Obsidian plugin for instant access to any link — web, internal note, vault 
 ## Features
 
 - **Sidebar panel** — collapsible folder tree, persists across sessions
-- **Latest section** — shows recently created files from your vault, with configurable count
+- **Tabs section** — quick switcher for currently open editor tabs
+- **Latest section** — split into **Created** and **Modified** subsections, each showing the top _n_ files
+- **Optional file deletion in Latest** — per-item trash action with confirmation, moved to system trash
+- **Back link after `obsidian://` opens** — jump back to the file you were on before triggering a deep link
 - **Link capture modal** — add a bookmark with name, URL, and target folder in under 10 seconds
 - **Plain Markdown source of truth** — human-readable, directly editable, syncs with your vault
-- **Configurable file location** — store `bookmarks.md` anywhere in your vault
+- **First-launch setup + configurable file location** — choose where `bookmarks.md` lives in your vault
 - **Multiple link types** — `https://`, `http://`, `obsidian://`, `vault://` (folder reveal), `note://` (internal note), or `[[wiki link]]` shorthand
-- **Two entry points** — command palette and slash command (`/`)
+- **Multiple entry points** — command palette commands, ribbon icon, and panel header actions
 
 ## Installation via BRAT
 
@@ -54,9 +57,17 @@ The file can live anywhere inside your vault (e.g. `Resources/bookmarks.md`). Yo
 
 ### Configure the Latest section
 
-Settings → Community plugins → **Launchpad** → **Latest files count**
+Settings → Community plugins → **Launchpad**
 
-Launchpad shows a **Latest** section below **Tabs** in the sidebar. It lists the most recently created files in your vault, sorted by creation time (newest first). Set **Latest files count** to control how many files are shown.
+Launchpad shows a **Latest** section below **Tabs** in the sidebar with two collapsible subsections:
+
+- **Created**: most recently created files (sorted by creation time)
+- **Modified**: most recently modified files (excluding files already shown in Created)
+
+Use these settings:
+
+- **Latest files count** — number of files shown in each subsection (default: 5)
+- **Enable file deletion** — shows a trash icon on Latest items; deleting moves files to system trash after confirmation (default: off)
 
 ## Bookmarks file format
 
@@ -98,7 +109,8 @@ For local testing, symlink or copy the repo directory into `.obsidian/plugins/ob
 
 ## Out of scope (MVP)
 
-- Edit / delete bookmarks from the UI — edit `bookmarks.md` directly
+- Edit bookmarks from the UI — edit `bookmarks.md` directly
+- Delete bookmarks from the UI — edit `bookmarks.md` directly
 - Drag-and-drop reordering
 - Search / filter within the panel
 - More than one level of subfolder nesting
