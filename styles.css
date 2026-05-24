@@ -452,3 +452,18 @@
         background-color: var(--scrollbar-thumb-bg);
         border-radius: 2px;
 }
+
+/* Latest folder — independent scroll so bookmarks above stay visible */
+.launchpad-latest-folder .launchpad-folder-content {
+	max-height: 160px;
+	overflow-y: auto;
+}
+
+.launchpad-latest-folder .launchpad-folder-content::-webkit-scrollbar {
+	width: 4px;
+}
+
+.launchpad-latest-folder .launchpad-folder-content::-webkit-scrollbar-thumb {
+	background-color: var(--scrollbar-thumb-bg);
+	border-radius: 2px;
+}

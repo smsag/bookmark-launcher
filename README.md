@@ -5,6 +5,7 @@ An Obsidian plugin for instant access to any link — web, internal note, vault 
 ## Features
 
 - **Sidebar panel** — collapsible folder tree, persists across sessions
+- **Latest section** — shows recently created files from your vault, with configurable count
 - **Link capture modal** — add a bookmark with name, URL, and target folder in under 10 seconds
 - **Plain Markdown source of truth** — human-readable, directly editable, syncs with your vault
 - **Configurable file location** — store `bookmarks.md` anywhere in your vault
@@ -50,6 +51,12 @@ Open your bookmarks file in your vault and edit it directly. The sidebar updates
 Command palette → **Launchpad: Configure bookmarks file location**
 
 The file can live anywhere inside your vault (e.g. `Resources/bookmarks.md`). You can also right-click any folder in the file explorer and choose **Copy path for Launchpad** to get a ready-to-paste `vault://` URL.
+
+### Configure the Latest section
+
+Settings → Community plugins → **Launchpad** → **Latest files count**
+
+Launchpad shows a **Latest** section below **Tabs** in the sidebar. It lists the most recently created files in your vault, sorted by creation time (newest first). Set **Latest files count** to control how many files are shown.
 
 ## Bookmarks file format
 

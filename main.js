@@ -294,7 +294,10 @@ var en_default = {
   "back.ariaLabel": "Go back to",
   "tabs.folder": "Tabs",
   "tabs.empty": "No tabs open.",
-  "tabs.ariaLabel": "Switch to tab"
+  "tabs.ariaLabel": "Switch to tab",
+  "latest.folder": "Latest",
+  "latest.empty": "No files found.",
+  "latest.ariaLabel": "Open file"
 };
 
 // i18n/de.json
@@ -322,7 +325,10 @@ var de_default = {
   "back.ariaLabel": "Zur\xFCck zu",
   "tabs.folder": "Tabs",
   "tabs.empty": "Keine Tabs ge\xF6ffnet.",
-  "tabs.ariaLabel": "Zu Tab wechseln"
+  "tabs.ariaLabel": "Zu Tab wechseln",
+  "latest.folder": "Zuletzt erstellt",
+  "latest.empty": "Keine Dateien gefunden.",
+  "latest.ariaLabel": "Datei \xF6ffnen"
 };
 
 // i18n.ts
@@ -370,7 +376,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     }
   }
   render() {
-    var _a2;
+    var _a2, _b;
     this.contentEl.empty();
     this.contentEl.addClass("launchpad-content-el");
     const container = this.contentEl.createDiv("launchpad-container");
@@ -445,6 +451,46 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     } else {
       for (const tab of openTabs) {
         this.renderTabItem(tabsInnerEl, tab);
+      }
+    }
+    const latestFiles = this.host.getLatestFiles();
+    const latestKey = "__latest__";
+    const latestCollapsed = (_b = collapseState[latestKey]) != null ? _b : false;
+    const latestFolderEl = scrollEl.createDiv("launchpad-folder launchpad-latest-folder");
+    const latestHeaderEl = latestFolderEl.createEl("button", {
+      cls: "launchpad-folder-header",
+      attr: {
+        type: "button",
+        "aria-expanded": (!latestCollapsed).toString()
+      }
+    });
+    const latestIconEl = latestHeaderEl.createSpan({
+      cls: "lp-folder-icon",
+      attr: { "aria-hidden": "true" }
+    });
+    (0, import_obsidian2.setIcon)(latestIconEl, "clock");
+    latestHeaderEl.createSpan({ text: t("latest.folder") });
+    const latestArrow = latestHeaderEl.createSpan({
+      cls: "launchpad-folder-arrow" + (latestCollapsed ? " collapsed" : ""),
+      text: "\u25BE",
+      attr: { "aria-hidden": "true" }
+    });
+    const latestContentEl = latestFolderEl.createDiv("launchpad-folder-content");
+    if (latestCollapsed)
+      latestContentEl.addClass("is-collapsed");
+    const latestInnerEl = latestContentEl.createDiv("lp-inner");
+    latestHeaderEl.addEventListener("click", async () => {
+      const nowCollapsed = !latestContentEl.hasClass("is-collapsed");
+      latestContentEl.toggleClass("is-collapsed", nowCollapsed);
+      latestArrow.classList.toggle("collapsed", nowCollapsed);
+      latestHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
+      await this.host.setCollapseState(latestKey, nowCollapsed);
+    });
+    if (latestFiles.length === 0) {
+      latestInnerEl.createDiv({ cls: "launchpad-empty", text: t("latest.empty") });
+    } else {
+      for (const file of latestFiles) {
+        this.renderLatestFileItem(latestInnerEl, file);
       }
     }
     const previousFilename = this.host.getPreviousFilename();
@@ -525,6 +571,26 @@ var BookmarkView = class extends import_obsidian2.ItemView {
     item.addEventListener("click", (e) => {
       e.preventDefault();
       this.host.focusTab(tab.leafId);
+    });
+  }
+  renderLatestFileItem(parent, file) {
+    const item = parent.createEl("a", {
+      cls: "launchpad-item launchpad-latest-item",
+      attr: {
+        href: "#",
+        title: file.path,
+        "aria-label": `${t("latest.ariaLabel")}: ${file.title}`
+      }
+    });
+    const iconEl = item.createSpan({
+      cls: "lp-item-icon",
+      attr: { "aria-hidden": "true" }
+    });
+    (0, import_obsidian2.setIcon)(iconEl, "file-text");
+    item.createSpan({ cls: "lp-item-name", text: file.title });
+    item.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.host.openLatestFile(file.path);
     });
   }
   renderBookmarkItem(parent, name, url) {
@@ -843,7 +909,8 @@ var SetupModal = class extends import_obsidian4.Modal {
 // main.ts
 var DEFAULT_DATA = {
   collapseState: {},
-  bookmarksFilePath: null
+  bookmarksFilePath: null,
+  latestFilesCount: 5
 };
 var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   constructor() {
@@ -858,6 +925,9 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   async onload() {
     var _a2;
     this.data = Object.assign({}, DEFAULT_DATA, await this.loadData());
+    if (!Number.isInteger(this.data.latestFilesCount) || this.data.latestFilesCount <= 0) {
+      this.data.latestFilesCount = DEFAULT_DATA.latestFilesCount;
+    }
     this.store = new BookmarkStoreManager(
       this.app,
       (_a2 = this.data.bookmarksFilePath) != null ? _a2 : DEFAULT_BOOKMARKS_FILE
@@ -879,6 +949,7 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
       name: "Configure bookmarks file location",
       callback: () => this.showSetupModal()
     });
+    this.addSettingTab(new LaunchpadSettingTab(this.app, this));
     const onBookmarksFileModify = (file) => {
       if (file instanceof import_obsidian5.TFile && file.path === this.store.getFilePath())
         this.refreshViews();
@@ -992,8 +1063,14 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   /** Persist a confirmed bookmarks file path and point the store at it. */
   async adoptPath(path) {
     this.data.bookmarksFilePath = path;
-    await this.saveData(this.data);
+    await this.saveSettings();
     this.store.setFilePath(path);
+  }
+  get settings() {
+    return this.data;
+  }
+  async saveSettings() {
+    await this.saveData(this.data);
   }
   // ── BookmarkViewHost ───────────────────────────────────────────────────
   async openCaptureModal() {
@@ -1009,7 +1086,7 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
   }
   async setCollapseState(key, collapsed) {
     this.data.collapseState[key] = collapsed;
-    await this.saveData(this.data);
+    await this.saveSettings();
   }
   openBookmarkUrl(url) {
     if (/[\x00-\x1f\x7f]/.test(url)) {
@@ -1082,6 +1159,19 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
     }, root);
     return tabs;
   }
+  getLatestFiles() {
+    return this.app.vault.getFiles().sort((a, b) => b.stat.ctime - a.stat.ctime).slice(0, this.settings.latestFilesCount).map((file) => ({
+      title: file.basename,
+      path: file.path,
+      ctime: file.stat.ctime
+    }));
+  }
+  openLatestFile(path) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (file instanceof import_obsidian5.TFile) {
+      this.app.workspace.getLeaf(false).openFile(file);
+    }
+  }
   focusTab(leafId) {
     this.app.workspace.iterateAllLeaves((leaf) => {
       if (leaf.id === leafId) {
@@ -1136,5 +1226,25 @@ var LaunchpadPlugin = class extends import_obsidian5.Plugin {
         leaf.view.setStore(storeData);
       }
     }
+  }
+};
+var LaunchpadSettingTab = class extends import_obsidian5.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    new import_obsidian5.Setting(containerEl).setName("Latest files count").setDesc("Number of recently created files to show in the Latest section.").addText(
+      (text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.latestFilesCount)).onChange(async (value) => {
+        const n = parseInt(value, 10);
+        if (!isNaN(n) && n > 0) {
+          this.plugin.settings.latestFilesCount = n;
+          await this.plugin.saveSettings();
+          await this.plugin.refreshViews();
+        }
+      })
+    );
   }
 };

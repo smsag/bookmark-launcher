@@ -22,5 +22,8 @@
   "back.ariaLabel": "Go back to",
   "tabs.folder": "Tabs",
   "tabs.empty": "No tabs open.",
-  "tabs.ariaLabel": "Switch to tab"
+  "tabs.ariaLabel": "Switch to tab",
+  "latest.folder": "Latest",
+  "latest.empty": "No files found.",
+  "latest.ariaLabel": "Open file"
 }

@@ -22,5 +22,8 @@
   "back.ariaLabel": "Zurück zu",
   "tabs.folder": "Tabs",
   "tabs.empty": "Keine Tabs geöffnet.",
-  "tabs.ariaLabel": "Zu Tab wechseln"
+  "tabs.ariaLabel": "Zu Tab wechseln",
+  "latest.folder": "Zuletzt erstellt",
+  "latest.empty": "Keine Dateien gefunden.",
+  "latest.ariaLabel": "Datei öffnen"
 }

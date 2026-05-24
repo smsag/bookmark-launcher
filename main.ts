@@ -1,7 +1,17 @@
-import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
+import {
+	App,
+	Menu,
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	TAbstractFile,
+	TFile,
+	TFolder,
+} from "obsidian";
 import { BookmarkStoreManager, DEFAULT_BOOKMARKS_FILE } from "./BookmarkStore";
 import { BookmarkView, BookmarkViewHost, VIEW_TYPE_BOOKMARK } from "./BookmarkView";
-import { OpenTab } from "./types";
+import { LatestFile, OpenTab } from "./types";
 import { CaptureModal } from "./CaptureModal";
 import { SetupModal } from "./SetupModal";
 
@@ -9,11 +19,13 @@ interface PluginData {
 	collapseState: Record<string, boolean>;
 	/** Vault-relative path to the bookmarks file. Null = not yet configured. */
 	bookmarksFilePath: string | null;
+	latestFilesCount: number;
 }
 
 const DEFAULT_DATA: PluginData = {
 	collapseState: {},
 	bookmarksFilePath: null,
+	latestFilesCount: 5,
 };
 
 export default class LaunchpadPlugin
@@ -31,6 +43,12 @@ export default class LaunchpadPlugin
 
 	async onload(): Promise<void> {
 		this.data = Object.assign({}, DEFAULT_DATA, await this.loadData());
+		if (
+			!Number.isInteger(this.data.latestFilesCount)
+			|| this.data.latestFilesCount <= 0
+		) {
+			this.data.latestFilesCount = DEFAULT_DATA.latestFilesCount;
+		}
 
 		// Initialise the store with whatever path we have so far (may be null →
 		// falls back to the default constant; we'll update it after setup).
@@ -60,6 +78,8 @@ export default class LaunchpadPlugin
 			name: "Configure bookmarks file location",
 			callback: () => this.showSetupModal(),
 		});
+
+		this.addSettingTab(new LaunchpadSettingTab(this.app, this));
 
 		// iOS iCloud hydration often surfaces as a modify event on the target
 		// file, so keep a scoped modify watcher to refresh the panel promptly.
@@ -211,8 +231,16 @@ export default class LaunchpadPlugin
 	/** Persist a confirmed bookmarks file path and point the store at it. */
 	private async adoptPath(path: string): Promise<void> {
 		this.data.bookmarksFilePath = path;
-		await this.saveData(this.data);
+		await this.saveSettings();
 		this.store.setFilePath(path);
+	}
+
+	get settings(): PluginData {
+		return this.data;
+	}
+
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.data);
 	}
 
 	// ── BookmarkViewHost ───────────────────────────────────────────────────
@@ -234,7 +262,7 @@ export default class LaunchpadPlugin
 
 	async setCollapseState(key: string, collapsed: boolean): Promise<void> {
 		this.data.collapseState[key] = collapsed;
-		await this.saveData(this.data);
+		await this.saveSettings();
 	}
 
 	openBookmarkUrl(url: string): void {
@@ -326,6 +354,25 @@ export default class LaunchpadPlugin
 		return tabs;
 	}
 
+	getLatestFiles(): LatestFile[] {
+		return this.app.vault
+			.getFiles()
+			.sort((a, b) => b.stat.ctime - a.stat.ctime)
+			.slice(0, this.settings.latestFilesCount)
+			.map((file) => ({
+				title: file.basename,
+				path: file.path,
+				ctime: file.stat.ctime,
+			}));
+	}
+
+	openLatestFile(path: string): void {
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (file instanceof TFile) {
+			this.app.workspace.getLeaf(false).openFile(file);
+		}
+	}
+
 	focusTab(leafId: string): void {
 		this.app.workspace.iterateAllLeaves((leaf) => {
 			if ((leaf as any).id === leafId) {
@@ -360,7 +407,7 @@ export default class LaunchpadPlugin
 		await this.refreshViews();
 	}
 
-	private async refreshViews(retryCount = 0): Promise<void> {
+	async refreshViews(retryCount = 0): Promise<void> {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_BOOKMARK);
 		if (leaves.length === 0) return;
 		// While iOS/iCloud hydration retries are in progress, render a loading
@@ -395,5 +442,36 @@ export default class LaunchpadPlugin
 				leaf.view.setStore(storeData);
 			}
 		}
+	}
+}
+
+class LaunchpadSettingTab extends PluginSettingTab {
+	plugin: LaunchpadPlugin;
+
+	constructor(app: App, plugin: LaunchpadPlugin) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
+
+	display(): void {
+		const { containerEl } = this;
+		containerEl.empty();
+
+		new Setting(containerEl)
+			.setName("Latest files count")
+			.setDesc("Number of recently created files to show in the Latest section.")
+			.addText((text) =>
+				text
+					.setPlaceholder("5")
+					.setValue(String(this.plugin.settings.latestFilesCount))
+					.onChange(async (value) => {
+						const n = parseInt(value, 10);
+						if (!isNaN(n) && n > 0) {
+							this.plugin.settings.latestFilesCount = n;
+							await this.plugin.saveSettings();
+							await this.plugin.refreshViews();
+						}
+					})
+			);
 	}
 }

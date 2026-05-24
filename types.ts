@@ -25,3 +25,9 @@ export interface OpenTab {
 	type: string;
 	leafId: string;
 }
+
+export interface LatestFile {
+	title: string;
+	path: string;
+	ctime: number;
+}

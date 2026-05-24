@@ -1,5 +1,5 @@
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
-import { BookmarkFolder, BookmarkStore, OpenTab } from "./types";
+import { BookmarkFolder, BookmarkStore, LatestFile, OpenTab } from "./types";
 import { FOLDER_SEP } from "./BookmarkStore";
 import { t } from "./i18n";
 
@@ -23,6 +23,10 @@ export interface BookmarkViewHost {
 	getOpenTabs(): OpenTab[];
 	/** Focuses the tab with the given leafId. */
 	focusTab(leafId: string): void;
+	/** Returns most recently created files, newest first. */
+	getLatestFiles(): LatestFile[];
+	/** Opens a latest file in the active leaf. */
+	openLatestFile(path: string): void;
 }
 
 export class BookmarkView extends ItemView {
@@ -162,6 +166,52 @@ export class BookmarkView extends ItemView {
 			}
 		}
 
+		// ── Latest section ──────────────────────────────────────────────────
+		const latestFiles = this.host.getLatestFiles();
+		const latestKey = "__latest__";
+		const latestCollapsed = collapseState[latestKey] ?? false;
+
+		const latestFolderEl = scrollEl.createDiv("launchpad-folder launchpad-latest-folder");
+
+		const latestHeaderEl = latestFolderEl.createEl("button", {
+			cls: "launchpad-folder-header",
+			attr: {
+				type: "button",
+				"aria-expanded": (!latestCollapsed).toString(),
+			},
+		});
+		const latestIconEl = latestHeaderEl.createSpan({
+			cls: "lp-folder-icon",
+			attr: { "aria-hidden": "true" },
+		});
+		setIcon(latestIconEl, "clock");
+		latestHeaderEl.createSpan({ text: t("latest.folder") });
+		const latestArrow = latestHeaderEl.createSpan({
+			cls: "launchpad-folder-arrow" + (latestCollapsed ? " collapsed" : ""),
+			text: "▾",
+			attr: { "aria-hidden": "true" },
+		});
+
+		const latestContentEl = latestFolderEl.createDiv("launchpad-folder-content");
+		if (latestCollapsed) latestContentEl.addClass("is-collapsed");
+		const latestInnerEl = latestContentEl.createDiv("lp-inner");
+
+		latestHeaderEl.addEventListener("click", async () => {
+			const nowCollapsed = !latestContentEl.hasClass("is-collapsed");
+			latestContentEl.toggleClass("is-collapsed", nowCollapsed);
+			latestArrow.classList.toggle("collapsed", nowCollapsed);
+			latestHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
+			await this.host.setCollapseState(latestKey, nowCollapsed);
+		});
+
+		if (latestFiles.length === 0) {
+			latestInnerEl.createDiv({ cls: "launchpad-empty", text: t("latest.empty") });
+		} else {
+			for (const file of latestFiles) {
+				this.renderLatestFileItem(latestInnerEl, file);
+			}
+		}
+
 		// Back link — pinned to the bottom-left of the view
 		const previousFilename = this.host.getPreviousFilename();
 		if (previousFilename !== null) {
@@ -274,6 +324,27 @@ export class BookmarkView extends ItemView {
 		item.addEventListener("click", (e) => {
 			e.preventDefault();
 			this.host.focusTab(tab.leafId);
+		});
+	}
+
+	private renderLatestFileItem(parent: HTMLElement, file: LatestFile): void {
+		const item = parent.createEl("a", {
+			cls: "launchpad-item launchpad-latest-item",
+			attr: {
+				href: "#",
+				title: file.path,
+				"aria-label": `${t("latest.ariaLabel")}: ${file.title}`,
+			},
+		});
+		const iconEl = item.createSpan({
+			cls: "lp-item-icon",
+			attr: { "aria-hidden": "true" },
+		});
+		setIcon(iconEl, "file-text");
+		item.createSpan({ cls: "lp-item-name", text: file.title });
+		item.addEventListener("click", (e) => {
+			e.preventDefault();
+			this.host.openLatestFile(file.path);
 		});
 	}
 
