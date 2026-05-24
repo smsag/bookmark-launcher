@@ -17,6 +17,7 @@ import { SetupModal } from "./SetupModal";
 import { t } from "./i18n";
 
 const REFRESH_RETRY_MAX_ATTEMPTS = 6;
+const LATEST_FILES_COUNT_MAX = 50;
 
 interface WorkspacePrivateApi {
 	rootSplit?: unknown;
@@ -71,6 +72,7 @@ function sanitizePluginData(raw: unknown): PluginData {
 		typeof data.latestFilesCount === "number"
 		&& Number.isInteger(data.latestFilesCount)
 		&& data.latestFilesCount > 0
+		&& data.latestFilesCount <= LATEST_FILES_COUNT_MAX
 			? data.latestFilesCount
 			: DEFAULT_DATA.latestFilesCount;
 
@@ -131,7 +133,7 @@ export default class LaunchpadPlugin
 
 		this.registerView(VIEW_TYPE_BOOKMARK, (leaf) => new BookmarkView(leaf, this));
 
-		this.addRibbonIcon("bookmark", "Launchpad", () => this.revealPanel());
+		this.addRibbonIcon("rocket", "Launchpad", () => this.revealPanel());
 
 		this.addCommand({
 			id: "add-bookmark",
@@ -330,6 +332,10 @@ export default class LaunchpadPlugin
 		await this.saveSettings();
 	}
 
+	async reloadBookmarks(): Promise<void> {
+		await this.refreshViews();
+	}
+
 	openBookmarkUrl(url: string): void {
 		// Allowlist URL schemes — reject anything not explicitly safe.
 		// bookmarks.md is user-editable plain text; without this guard a
@@ -457,6 +463,7 @@ export default class LaunchpadPlugin
 
 		const snapshot = this.app.vault
 			.getFiles()
+			.filter((file) => file.extension === "md")
 			.map((file) => ({
 				title: file.basename,
 				path: file.path,
@@ -605,15 +612,15 @@ class LaunchpadSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("Latest files count")
-			.setDesc("Number of recently created files to show in the Latest section.")
+			.setName(t("settings.latestCount.name"))
+			.setDesc(t("settings.latestCount.desc"))
 			.addText((text) =>
 				text
 					.setPlaceholder("5")
 					.setValue(String(this.plugin.settings.latestFilesCount))
 					.onChange(async (value) => {
 						const n = parseInt(value, 10);
-						if (!isNaN(n) && n > 0) {
+						if (!isNaN(n) && n > 0 && n <= LATEST_FILES_COUNT_MAX) {
 							this.plugin.settings.latestFilesCount = n;
 							await this.plugin.saveSettings();
 							await this.plugin.refreshViews();

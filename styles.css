@@ -80,6 +80,39 @@
 	line-height: 1.5;
 }
 
+.launchpad-empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 0;
+}
+
+.launchpad-reload-btn {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 10px;
+	background: none;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	color: var(--text-muted);
+	font-size: var(--font-smaller);
+	cursor: default;
+	transition: color 120ms ease, border-color 120ms ease;
+}
+
+.launchpad-reload-btn:hover {
+	color: var(--text-normal);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.launchpad-reload-btn svg {
+	width: 12px;
+	height: 12px;
+	stroke-width: 2;
+}
+
 /* Folder (# heading) */
 
 .launchpad-folder {
@@ -96,6 +129,7 @@
 	align-items: center;
 	justify-content: flex-start;
 	gap: 4px;
+	min-width: 0;
 	cursor: pointer;
 	padding: 3px 4px;
 	border-radius: 4px;
@@ -138,6 +172,7 @@
 	align-items: center;
 	justify-content: flex-start;
 	gap: 4px;
+	min-width: 0;
 	cursor: pointer;
 	padding: 2px 4px 2px 8px;
 	border-radius: 4px;
@@ -218,6 +253,7 @@
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	min-width: 0;
 	padding: 7px 8px;
 	margin-bottom: 2px;
 	border-radius: 4px;

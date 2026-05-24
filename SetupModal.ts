@@ -1,4 +1,5 @@
 import { App, Modal, Setting, TFolder, normalizePath } from "obsidian";
+import { t } from "./i18n";
 
 /**
  * Shown on first launch or when the user wants to change the bookmarks file.
@@ -25,27 +26,27 @@ export class SetupModal extends Modal {
 		const isReconfigure = this.currentPath !== null;
 		contentEl.addClass("launchpad-setup-modal");
 		new Setting(contentEl)
-			.setName(isReconfigure ? "Change bookmarks file" : "Set up Launchpad")
+			.setName(isReconfigure ? t("setup.heading.reconfigure") : t("setup.heading.new"))
 			.setHeading();
 		contentEl.createEl("p", {
 			cls: "launchpad-setup-description",
 			text: isReconfigure
-				? "Enter the vault-relative path of the Markdown file you want to use. The file will be created if it does not exist yet."
-				: "Choose where to store your bookmarks file. You can place it anywhere inside your vault — it stays a plain Markdown file you can edit directly.",
+				? t("setup.description.reconfigure")
+				: t("setup.description.new"),
 		});
 
 		// ── Path input ────────────────────────────────────────────────────
 		let pathValue = this.currentPath ?? "bookmarks.md";
 
 		const pathField = contentEl.createDiv("launchpad-capture-field");
-		const pathLbl = pathField.createEl("label", { text: "File path (relative to vault root)" });
+		const pathLbl = pathField.createEl("label", { text: t("setup.path.label") });
 		pathLbl.setAttribute("for", "lp-sm-path");
 
 		const pathInput = pathField.createEl("input", {
 			attr: {
 				id: "lp-sm-path",
 				type: "text",
-				placeholder: "bookmarks.md  or  Resources/bookmarks.md",
+				placeholder: t("setup.path.placeholder"),
 				"aria-describedby": "lp-sm-path-err",
 			},
 		});
@@ -69,7 +70,7 @@ export class SetupModal extends Modal {
 
 		if (folders.length > 0) {
 			const hintRow = pathField.createDiv("launchpad-setup-hint");
-			hintRow.createSpan({ cls: "launchpad-setup-hint-label", text: "Folders: " });
+			hintRow.createSpan({ cls: "launchpad-setup-hint-label", text: t("setup.folders.label") });
 			for (const folder of folders) {
 				const chip = hintRow.createEl("button", {
 					cls: "launchpad-setup-chip",
@@ -92,13 +93,13 @@ export class SetupModal extends Modal {
 		// ── Validation ────────────────────────────────────────────────────
 		const validate = (val: string): string => {
 			const v = val.trim();
-			if (!v) return "Path is required.";
-			if (!v.endsWith(".md")) return "File must end with .md";
-			if (v.startsWith("/")) return "Use a relative path — no leading slash.";
-			if (v.includes("..")) return "Path cannot contain ..";
+			if (!v) return t("setup.path.errorRequired");
+			if (!v.endsWith(".md")) return t("setup.path.errorExtension");
+			if (v.startsWith("/")) return t("setup.path.errorLeadingSlash");
+			if (v.includes("..")) return t("setup.path.errorDotDot");
 			// Block null bytes and other ASCII control characters, which some
 			// file-systems treat specially or which could bypass the checks above.
-			if (/[\x00-\x1f\x7f]/.test(v)) return "Path contains invalid characters.";
+			if (/[\x00-\x1f\x7f]/.test(v)) return t("setup.path.errorInvalidChars");
 			return "";
 		};
 
@@ -111,10 +112,14 @@ export class SetupModal extends Modal {
 		// ── Actions ───────────────────────────────────────────────────────
 		const actions = contentEl.createDiv("launchpad-capture-actions");
 
-		const cancelBtn = actions.createEl("button", { text: isReconfigure ? "Cancel" : "Later" });
+		const cancelBtn = actions.createEl("button", {
+			text: isReconfigure ? t("setup.cancel.reconfigure") : t("setup.cancel.new"),
+		});
 		cancelBtn.addEventListener("click", () => this.close());
 
-		const confirmLabel = isReconfigure ? "Save" : "Create file";
+		const confirmLabel = isReconfigure
+			? t("setup.confirm.reconfigure")
+			: t("setup.confirm.new");
 		const confirmBtn = actions.createEl("button", {
 			cls: "mod-cta",
 			text: confirmLabel,
@@ -123,7 +128,9 @@ export class SetupModal extends Modal {
 			const err = validate(pathValue.trim());
 			if (err) { errorEl.textContent = err; return; }
 			confirmBtn.disabled = true;
-			confirmBtn.setText(isReconfigure ? "Saving…" : "Creating…");
+			confirmBtn.setText(
+				isReconfigure ? t("setup.confirm.saving") : t("setup.confirm.creating")
+			);
 			try {
 				await this.onConfirm(normalizePath(pathValue.trim()));
 				this.close();

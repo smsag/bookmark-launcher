@@ -39,6 +39,8 @@ Skipping the `gh release upload` step will cause BRAT installs/updates to fail w
 main.ts              Plugin entry — wires everything together
 BookmarkStore.ts     Parse + write the bookmarks file (BookmarkStoreManager)
 BookmarkView.ts      Sidebar panel (ItemView, type: launchpad-view)
+LatestSectionRenderer.ts  Latest Created/Modified subsections renderer
+ConfirmDeleteModal.ts     Delete confirmation modal for Latest files
 CaptureModal.ts      Add-bookmark modal (Modal)
 SetupModal.ts        First-launch / reconfigure file-path modal (Modal)
 types.ts             Interfaces: Bookmark, BookmarkFolder, BookmarkStore, FolderOption
