@@ -70,7 +70,6 @@ function renderLatestFileItem(
 ): void {
 	const itemEl = containerEl.createEl("div", {
 		cls: "launchpad-item launchpad-latest-item",
-		attr: { title: file.path },
 	});
 
 	const fileLinkEl = itemEl.createEl("a", {

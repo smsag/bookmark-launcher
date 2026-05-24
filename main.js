@@ -307,6 +307,10 @@ var en_default = {
   "latest.delete.confirmMessage": 'Move "{filename}" to system trash?',
   "latest.delete.confirm": "Delete",
   "latest.delete.cancel": "Cancel",
+  "settings.tabs.name": "Show Tabs section",
+  "settings.tabs.desc": "Display open editor tabs in the sidebar panel.",
+  "settings.latest.name": "Show Latest section",
+  "settings.latest.desc": "Display recently created and modified notes in the sidebar panel.",
   "settings.latestDelete.name": "Enable file deletion",
   "settings.latestDelete.desc": "Show a delete button on Latest items. Files are moved to the system trash.",
   "settings.latestCount.name": "Latest files count",
@@ -369,6 +373,10 @@ var de_default = {
   "latest.delete.confirmMessage": '"{filename}" in den Papierkorb verschieben?',
   "latest.delete.confirm": "L\xF6schen",
   "latest.delete.cancel": "Abbrechen",
+  "settings.tabs.name": "Tabs-Bereich anzeigen",
+  "settings.tabs.desc": "Zeigt ge\xF6ffnete Editor-Tabs im Seitenbereich an.",
+  "settings.latest.name": "Zuletzt-Bereich anzeigen",
+  "settings.latest.desc": "Zeigt zuletzt erstellte und ge\xE4nderte Notizen im Seitenbereich an.",
   "settings.latestDelete.name": "Datei l\xF6schen aktivieren",
   "settings.latestDelete.desc": "L\xF6schen-Schaltfl\xE4che bei zuletzt erstellten Dateien anzeigen. Dateien werden in den Papierkorb verschoben.",
   "settings.latestCount.name": "Anzahl zuletzt verwendeter Dateien",
@@ -493,8 +501,7 @@ function renderLatestSubsection(app, containerEl, collapseState, subsectionKey, 
 }
 function renderLatestFileItem(app, containerEl, file, host) {
   const itemEl = containerEl.createEl("div", {
-    cls: "launchpad-item launchpad-latest-item",
-    attr: { title: file.path }
+    cls: "launchpad-item launchpad-latest-item"
   });
   const fileLinkEl = itemEl.createEl("a", {
     cls: "launchpad-item-link",
@@ -584,7 +591,6 @@ var BookmarkView = class extends import_obsidian4.ItemView {
     this.contentEl.addClass("launchpad-content-el");
     const containerEl = this.contentEl.createDiv("launchpad-container");
     containerEl.setAttribute("role", "navigation");
-    containerEl.setAttribute("aria-label", "Launchpad");
     const headerEl = containerEl.createDiv("launchpad-header");
     headerEl.createSpan({ text: t("panel.title") });
     const settingsButtonEl = headerEl.createEl("button", {
@@ -622,117 +628,121 @@ var BookmarkView = class extends import_obsidian4.ItemView {
       reloadButtonEl.createSpan({ text: t("panel.reload") });
       reloadButtonEl.addEventListener("click", () => void this.host.reloadBookmarks());
     }
-    let openTabs = [];
-    try {
-      openTabs = this.host.getOpenTabs();
-    } catch (error) {
-      console.error("Launchpad: failed to collect open tabs", error);
-    }
-    const tabsKey = "__tabs__";
-    const tabsCollapsed = (_a2 = collapseState[tabsKey]) != null ? _a2 : false;
-    const tabsFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-tabs-folder");
-    const tabsHeaderEl = tabsFolderEl.createEl("button", {
-      cls: "launchpad-folder-header",
-      attr: {
-        type: "button",
-        "aria-expanded": (!tabsCollapsed).toString()
+    if (this.host.isTabsSectionEnabled()) {
+      let openTabs = [];
+      try {
+        openTabs = this.host.getOpenTabs();
+      } catch (error) {
+        console.error("Launchpad: failed to collect open tabs", error);
       }
-    });
-    const tabsIconEl = tabsHeaderEl.createSpan({
-      cls: "lp-folder-icon",
-      attr: { "aria-hidden": "true" }
-    });
-    setIconWithFallback(tabsIconEl, "layout-grid", "layout-dashboard");
-    tabsHeaderEl.createSpan({ text: t("tabs.folder") });
-    const tabsArrow = tabsHeaderEl.createSpan({
-      cls: "launchpad-folder-arrow" + (tabsCollapsed ? " collapsed" : ""),
-      text: "\u25BE",
-      attr: { "aria-hidden": "true" }
-    });
-    const tabsContentEl = tabsFolderEl.createDiv("launchpad-folder-content");
-    if (tabsCollapsed)
-      tabsContentEl.addClass("is-collapsed");
-    const tabsInnerEl = tabsContentEl.createDiv("lp-inner");
-    tabsHeaderEl.addEventListener("click", async () => {
-      const nowCollapsed = !tabsContentEl.hasClass("is-collapsed");
-      tabsContentEl.toggleClass("is-collapsed", nowCollapsed);
-      tabsArrow.classList.toggle("collapsed", nowCollapsed);
-      tabsHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
-      await this.host.setCollapseState(tabsKey, nowCollapsed);
-    });
-    if (openTabs.length === 0)
-      tabsInnerEl.createDiv({ cls: "launchpad-empty", text: t("tabs.empty") });
-    else
-      for (const tab of openTabs)
-        this.renderTabItem(tabsInnerEl, tab);
-    let latestCreated = [];
-    let latestModified = [];
-    try {
-      latestCreated = this.host.getLatestCreatedFiles();
-      latestModified = this.host.getLatestModifiedFiles();
-    } catch (error) {
-      console.error("Launchpad: failed to collect latest files", error);
+      const tabsKey = "__tabs__";
+      const tabsCollapsed = (_a2 = collapseState[tabsKey]) != null ? _a2 : false;
+      const tabsFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-tabs-folder");
+      const tabsHeaderEl = tabsFolderEl.createEl("button", {
+        cls: "launchpad-folder-header",
+        attr: {
+          type: "button",
+          "aria-expanded": (!tabsCollapsed).toString()
+        }
+      });
+      const tabsIconEl = tabsHeaderEl.createSpan({
+        cls: "lp-folder-icon",
+        attr: { "aria-hidden": "true" }
+      });
+      setIconWithFallback(tabsIconEl, "layout-grid", "layout-dashboard");
+      tabsHeaderEl.createSpan({ text: t("tabs.folder") });
+      const tabsArrow = tabsHeaderEl.createSpan({
+        cls: "launchpad-folder-arrow" + (tabsCollapsed ? " collapsed" : ""),
+        text: "\u25BE",
+        attr: { "aria-hidden": "true" }
+      });
+      const tabsContentEl = tabsFolderEl.createDiv("launchpad-folder-content");
+      if (tabsCollapsed)
+        tabsContentEl.addClass("is-collapsed");
+      const tabsInnerEl = tabsContentEl.createDiv("lp-inner");
+      tabsHeaderEl.addEventListener("click", async () => {
+        const nowCollapsed = !tabsContentEl.hasClass("is-collapsed");
+        tabsContentEl.toggleClass("is-collapsed", nowCollapsed);
+        tabsArrow.classList.toggle("collapsed", nowCollapsed);
+        tabsHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
+        await this.host.setCollapseState(tabsKey, nowCollapsed);
+      });
+      if (openTabs.length === 0)
+        tabsInnerEl.createDiv({ cls: "launchpad-empty", text: t("tabs.empty") });
+      else
+        for (const tab of openTabs)
+          this.renderTabItem(tabsInnerEl, tab);
     }
-    const latestKey = "__latest__";
-    const latestCollapsed = (_b = collapseState[latestKey]) != null ? _b : false;
-    const latestFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-latest-folder");
-    const latestHeaderEl = latestFolderEl.createEl("button", {
-      cls: "launchpad-folder-header",
-      attr: {
-        type: "button",
-        "aria-expanded": (!latestCollapsed).toString()
+    if (this.host.isLatestSectionEnabled()) {
+      let latestCreated = [];
+      let latestModified = [];
+      try {
+        latestCreated = this.host.getLatestCreatedFiles();
+        latestModified = this.host.getLatestModifiedFiles();
+      } catch (error) {
+        console.error("Launchpad: failed to collect latest files", error);
       }
-    });
-    const latestIconEl = latestHeaderEl.createSpan({
-      cls: "lp-folder-icon",
-      attr: { "aria-hidden": "true" }
-    });
-    setIconWithFallback(latestIconEl, "clock", "history");
-    latestHeaderEl.createSpan({ text: t("latest.folder") });
-    const latestArrow = latestHeaderEl.createSpan({
-      cls: "launchpad-folder-arrow" + (latestCollapsed ? " collapsed" : ""),
-      text: "\u25BE",
-      attr: { "aria-hidden": "true" }
-    });
-    const latestContentEl = latestFolderEl.createDiv("launchpad-folder-content");
-    if (latestCollapsed)
-      latestContentEl.addClass("is-collapsed");
-    const latestInnerEl = latestContentEl.createDiv("lp-inner");
-    latestHeaderEl.addEventListener("click", async () => {
-      const nowCollapsed = !latestContentEl.hasClass("is-collapsed");
-      latestContentEl.toggleClass("is-collapsed", nowCollapsed);
-      latestArrow.classList.toggle("collapsed", nowCollapsed);
-      latestHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
-      await this.host.setCollapseState(latestKey, nowCollapsed);
-    });
-    renderLatestSubsection(
-      this.app,
-      latestInnerEl,
-      collapseState,
-      "__latest_created__",
-      t("latest.created"),
-      "file-plus",
-      latestCreated,
-      this.host,
-      (key, collapsed) => this.host.setCollapseState(key, collapsed)
-    );
-    renderLatestSubsection(
-      this.app,
-      latestInnerEl,
-      collapseState,
-      "__latest_modified__",
-      t("latest.modified"),
-      "file-edit",
-      latestModified,
-      this.host,
-      (key, collapsed) => this.host.setCollapseState(key, collapsed)
-    );
+      const latestKey = "__latest__";
+      const latestCollapsed = (_b = collapseState[latestKey]) != null ? _b : false;
+      const latestFolderEl = scrollContainerEl.createDiv("launchpad-folder launchpad-latest-folder");
+      const latestHeaderEl = latestFolderEl.createEl("button", {
+        cls: "launchpad-folder-header",
+        attr: {
+          type: "button",
+          "aria-expanded": (!latestCollapsed).toString()
+        }
+      });
+      const latestIconEl = latestHeaderEl.createSpan({
+        cls: "lp-folder-icon",
+        attr: { "aria-hidden": "true" }
+      });
+      setIconWithFallback(latestIconEl, "clock", "history");
+      latestHeaderEl.createSpan({ text: t("latest.folder") });
+      const latestArrow = latestHeaderEl.createSpan({
+        cls: "launchpad-folder-arrow" + (latestCollapsed ? " collapsed" : ""),
+        text: "\u25BE",
+        attr: { "aria-hidden": "true" }
+      });
+      const latestContentEl = latestFolderEl.createDiv("launchpad-folder-content");
+      if (latestCollapsed)
+        latestContentEl.addClass("is-collapsed");
+      const latestInnerEl = latestContentEl.createDiv("lp-inner");
+      latestHeaderEl.addEventListener("click", async () => {
+        const nowCollapsed = !latestContentEl.hasClass("is-collapsed");
+        latestContentEl.toggleClass("is-collapsed", nowCollapsed);
+        latestArrow.classList.toggle("collapsed", nowCollapsed);
+        latestHeaderEl.setAttribute("aria-expanded", (!nowCollapsed).toString());
+        await this.host.setCollapseState(latestKey, nowCollapsed);
+      });
+      renderLatestSubsection(
+        this.app,
+        latestInnerEl,
+        collapseState,
+        "__latest_created__",
+        t("latest.created"),
+        "file-plus",
+        latestCreated,
+        this.host,
+        (key, collapsed) => this.host.setCollapseState(key, collapsed)
+      );
+      renderLatestSubsection(
+        this.app,
+        latestInnerEl,
+        collapseState,
+        "__latest_modified__",
+        t("latest.modified"),
+        "file-edit",
+        latestModified,
+        this.host,
+        (key, collapsed) => this.host.setCollapseState(key, collapsed)
+      );
+    }
     const previousFilename = this.host.getPreviousFilename();
     if (previousFilename !== null) {
       const backSectionEl = containerEl.createDiv("launchpad-back-section");
       const backLinkEl = backSectionEl.createEl("a", {
         cls: "launchpad-back-item",
-        attr: { href: "#", title: `${t("back.ariaLabel")} ${previousFilename}` }
+        attr: { href: "#" }
       });
       const backIconEl = backLinkEl.createSpan({ cls: "lp-item-icon", attr: { "aria-hidden": "true" } });
       (0, import_obsidian4.setIcon)(backIconEl, "arrow-left");
@@ -782,7 +792,6 @@ var BookmarkView = class extends import_obsidian4.ItemView {
       cls: "launchpad-item launchpad-tab-item",
       attr: {
         href: "#",
-        title: tab.title,
         "aria-label": `${t("tabs.ariaLabel")}: ${tab.title}`
       }
     });
@@ -798,7 +807,7 @@ var BookmarkView = class extends import_obsidian4.ItemView {
   renderBookmarkItem(containerEl, name, url) {
     const itemEl = containerEl.createEl("a", {
       cls: "launchpad-item",
-      attr: { href: "#", title: url }
+      attr: { href: "#" }
     });
     const isVault = url.startsWith("vault://");
     const isNote = url.startsWith("note://");
@@ -1125,18 +1134,24 @@ function sanitizePluginData(raw) {
   const bookmarksFilePath = typeof data.bookmarksFilePath === "string" ? data.bookmarksFilePath : null;
   const latestFilesCount = typeof data.latestFilesCount === "number" && Number.isInteger(data.latestFilesCount) && data.latestFilesCount > 0 && data.latestFilesCount <= LATEST_FILES_COUNT_MAX ? data.latestFilesCount : DEFAULT_DATA.latestFilesCount;
   const latestDeleteEnabled = typeof data.latestDeleteEnabled === "boolean" ? data.latestDeleteEnabled : DEFAULT_DATA.latestDeleteEnabled;
+  const tabsSectionEnabled = typeof data.tabsSectionEnabled === "boolean" ? data.tabsSectionEnabled : DEFAULT_DATA.tabsSectionEnabled;
+  const latestSectionEnabled = typeof data.latestSectionEnabled === "boolean" ? data.latestSectionEnabled : DEFAULT_DATA.latestSectionEnabled;
   return {
     collapseState,
     bookmarksFilePath,
     latestFilesCount,
-    latestDeleteEnabled
+    latestDeleteEnabled,
+    tabsSectionEnabled,
+    latestSectionEnabled
   };
 }
 var DEFAULT_DATA = {
   collapseState: {},
   bookmarksFilePath: null,
   latestFilesCount: 5,
-  latestDeleteEnabled: false
+  latestDeleteEnabled: false,
+  tabsSectionEnabled: true,
+  latestSectionEnabled: true
 };
 var LaunchpadPlugin = class extends import_obsidian7.Plugin {
   constructor() {
@@ -1386,36 +1401,29 @@ var LaunchpadPlugin = class extends import_obsidian7.Plugin {
   }
   getOpenTabs() {
     const tabs = [];
-    const workspacePrivate = this.app.workspace;
-    const root = workspacePrivate.rootSplit;
-    const iterateLeaves = workspacePrivate.iterateLeaves;
-    const collectLeaf = (leaf) => {
-      if (!leaf.id)
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      var _a2;
+      const workspaceLeaf = leaf;
+      if (workspaceLeaf.view.getViewType() === VIEW_TYPE_BOOKMARK)
         return;
-      if (!leaf.view)
+      const root = (_a2 = workspaceLeaf.getRoot) == null ? void 0 : _a2.call(workspaceLeaf);
+      if (root !== this.app.workspace.rootSplit)
         return;
-      if (typeof leaf.view.getViewType !== "function")
-        return;
-      if (typeof leaf.view.getDisplayText !== "function")
-        return;
-      if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK)
+      if (!workspaceLeaf.id)
         return;
       tabs.push({
-        title: leaf.view.getDisplayText(),
-        type: leaf.view.getViewType(),
-        leafId: leaf.id
+        title: workspaceLeaf.view.getDisplayText(),
+        type: workspaceLeaf.view.getViewType(),
+        leafId: workspaceLeaf.id
       });
-    };
-    if (!iterateLeaves || !root) {
-      this.app.workspace.iterateAllLeaves((leaf) => {
-        collectLeaf(leaf);
-      });
-      return tabs;
-    }
-    iterateLeaves((leaf) => {
-      collectLeaf(leaf);
-    }, root);
+    });
     return tabs;
+  }
+  isTabsSectionEnabled() {
+    return this.settings.tabsSectionEnabled;
+  }
+  isLatestSectionEnabled() {
+    return this.settings.latestSectionEnabled;
   }
   getFilesSnapshot() {
     if (this.latestFilesSnapshotCache && this.latestFilesSnapshotReuseCount > 0) {
@@ -1533,6 +1541,20 @@ var LaunchpadSettingTab = class extends import_obsidian7.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
+    new import_obsidian7.Setting(containerEl).setName(t("settings.tabs.name")).setDesc(t("settings.tabs.desc")).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.tabsSectionEnabled).onChange(async (value) => {
+        this.plugin.settings.tabsSectionEnabled = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      })
+    );
+    new import_obsidian7.Setting(containerEl).setName(t("settings.latest.name")).setDesc(t("settings.latest.desc")).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.latestSectionEnabled).onChange(async (value) => {
+        this.plugin.settings.latestSectionEnabled = value;
+        await this.plugin.saveSettings();
+        await this.plugin.refreshViews();
+      })
+    );
     new import_obsidian7.Setting(containerEl).setName(t("settings.latestCount.name")).setDesc(t("settings.latestCount.desc")).addText(
       (text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.latestFilesCount)).onChange(async (value) => {
         const n = parseInt(value, 10);

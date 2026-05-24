@@ -206,18 +206,7 @@
 /* Collapse arrow */
 
 .launchpad-folder-arrow {
-	font-size: 11px;
-	display: inline-block;
-	transition: transform 0.2s ease;
-	color: var(--text-muted);
-	flex-shrink: 0;
-	width: 10px;
-	text-align: center;
-	margin-left: auto;
-}
-
-.launchpad-folder-arrow.collapsed {
-	transform: rotate(-90deg);
+	display: none;
 }
 
 /* Animated folder content */
@@ -493,8 +482,12 @@
 
 /* Latest subsections — independent scroll for Created and Modified */
 .launchpad-latest-folder .launchpad-subfolder-content {
-	max-height: 160px;
+	max-height: 172px;
 	overflow-y: auto;
+}
+
+.launchpad-latest-folder .launchpad-subfolder-content > .lp-inner {
+	padding-bottom: 6px;
 }
 
 .launchpad-latest-folder .launchpad-subfolder-content::-webkit-scrollbar {
@@ -510,7 +503,7 @@
 .launchpad-latest-item {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: 0;
 }
 
 /* Link takes all available space */
@@ -523,6 +516,14 @@
 	border-bottom: none;
 	color: inherit;
 	min-width: 0;
+}
+
+.launchpad-item-link,
+.launchpad-item-link:hover,
+.launchpad-item-link:focus {
+	text-decoration: none;
+	border-bottom: none;
+	box-shadow: none;
 }
 
 .launchpad-item-link .lp-item-name {
@@ -542,10 +543,10 @@
 	background: none;
 	border: none;
 	border-radius: 4px;
-	color: var(--icon-color);
+	color: var(--color-accent);
 	cursor: default;
 	opacity: 0;
-	transition: opacity 120ms ease, color 120ms ease;
+	transition: opacity 120ms ease;
 	flex-shrink: 0;
 }
 
@@ -554,7 +555,7 @@
 }
 
 .launchpad-delete-btn:hover {
-	color: var(--text-error);
+	color: var(--color-accent);
 }
 
 .launchpad-delete-btn svg {

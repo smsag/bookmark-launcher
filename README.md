@@ -55,18 +55,25 @@ Command palette → **Launchpad: Configure bookmarks file location**
 
 The file can live anywhere inside your vault (e.g. `Resources/bookmarks.md`). You can also right-click any folder in the file explorer and choose **Copy path for Launchpad** to get a ready-to-paste `vault://` URL.
 
-### Configure the Latest section
+### Configure sidebar sections
 
 Settings → Community plugins → **Launchpad**
 
-Launchpad shows a **Latest** section below **Tabs** in the sidebar with two collapsible subsections:
+Launchpad can show two optional sidebar sections below your bookmarks:
+
+- **Tabs** — currently open editor tabs
+- **Latest** — two collapsible subsections for recently created and recently modified notes
+
+The **Latest** section contains:
 
 - **Created**: most recently created files (sorted by creation time)
 - **Modified**: most recently modified files (excluding files already shown in Created)
 
 Use these settings:
 
-- **Latest files count** — number of files shown in each subsection (default: 5)
+- **Show Tabs section** — show or hide the open-tabs section (default: on)
+- **Show Latest section** — show or hide the recent-files section (default: on)
+- **Latest files count** — number of files shown in each subsection (default: 5, maximum: 50)
 - **Enable file deletion** — shows a trash icon on Latest items; deleting moves files to system trash after confirmation (default: off)
 
 ## Bookmarks file format

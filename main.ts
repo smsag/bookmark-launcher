@@ -19,21 +19,17 @@ import { t } from "./i18n";
 const REFRESH_RETRY_MAX_ATTEMPTS = 6;
 const LATEST_FILES_COUNT_MAX = 50;
 
-interface WorkspacePrivateApi {
-	rootSplit?: unknown;
-	iterateLeaves?: (callback: (leaf: WorkspaceLeafLike) => void, root: unknown) => void;
+interface FileExplorerViewLike {
+	revealInFolder?: (folder: TFolder) => void;
 }
 
-interface WorkspaceLeafLike {
+interface WorkspaceLeafWithRoot {
 	id?: string;
+	getRoot?: () => unknown;
 	view: {
 		getViewType(): string;
 		getDisplayText(): string;
 	};
-}
-
-interface FileExplorerViewLike {
-	revealInFolder?: (folder: TFolder) => void;
 }
 
 interface AppSettingsApi {
@@ -47,6 +43,8 @@ interface PluginData {
 	bookmarksFilePath: string | null;
 	latestFilesCount: number;
 	latestDeleteEnabled: boolean;
+	tabsSectionEnabled: boolean;
+	latestSectionEnabled: boolean;
 }
 
 /**
@@ -81,11 +79,23 @@ function sanitizePluginData(raw: unknown): PluginData {
 			? data.latestDeleteEnabled
 			: DEFAULT_DATA.latestDeleteEnabled;
 
+	const tabsSectionEnabled =
+		typeof data.tabsSectionEnabled === "boolean"
+			? data.tabsSectionEnabled
+			: DEFAULT_DATA.tabsSectionEnabled;
+
+	const latestSectionEnabled =
+		typeof data.latestSectionEnabled === "boolean"
+			? data.latestSectionEnabled
+			: DEFAULT_DATA.latestSectionEnabled;
+
 	return {
 		collapseState,
 		bookmarksFilePath,
 		latestFilesCount,
 		latestDeleteEnabled,
+		tabsSectionEnabled,
+		latestSectionEnabled,
 	};
 }
 
@@ -94,6 +104,8 @@ const DEFAULT_DATA: PluginData = {
 	bookmarksFilePath: null,
 	latestFilesCount: 5,
 	latestDeleteEnabled: false,
+	tabsSectionEnabled: true,
+	latestSectionEnabled: true,
 };
 
 export default class LaunchpadPlugin
@@ -417,38 +429,28 @@ export default class LaunchpadPlugin
 
 	getOpenTabs(): OpenTab[] {
 		const tabs: OpenTab[] = [];
-		const workspacePrivate = this.app.workspace as unknown as WorkspacePrivateApi;
-		const root = workspacePrivate.rootSplit;
-		const iterateLeaves = workspacePrivate.iterateLeaves;
-
-		const collectLeaf = (leaf: WorkspaceLeafLike): void => {
-			if (!leaf.id) return;
-			if (!leaf.view) return;
-			if (typeof leaf.view.getViewType !== "function") return;
-			if (typeof leaf.view.getDisplayText !== "function") return;
-			if (leaf.view.getViewType() === VIEW_TYPE_BOOKMARK) return;
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			const workspaceLeaf = leaf as unknown as WorkspaceLeafWithRoot;
+			if (workspaceLeaf.view.getViewType() === VIEW_TYPE_BOOKMARK) return;
+			const root = workspaceLeaf.getRoot?.();
+			if (root !== this.app.workspace.rootSplit) return;
+			if (!workspaceLeaf.id) return;
 			tabs.push({
-				title: leaf.view.getDisplayText(),
-				type: leaf.view.getViewType(),
-				leafId: leaf.id,
+				title: workspaceLeaf.view.getDisplayText(),
+				type: workspaceLeaf.view.getViewType(),
+				leafId: workspaceLeaf.id,
 			});
-		};
-
-		if (!iterateLeaves || !root) {
-			// Some Obsidian builds do not expose rootSplit/iterateLeaves; fallback keeps Tabs available.
-			this.app.workspace.iterateAllLeaves((leaf) => {
-				collectLeaf(leaf as unknown as WorkspaceLeafLike);
-			});
-			return tabs;
-		}
-
-		// iterateAllLeaves includes sidebars — walk rootSplit only to get
-		// main editor tabs, excluding left/right sidebar panels.
-		iterateLeaves((leaf) => {
-			collectLeaf(leaf);
-		}, root);
+		});
 
 		return tabs;
+	}
+
+	isTabsSectionEnabled(): boolean {
+		return this.settings.tabsSectionEnabled;
+	}
+
+	isLatestSectionEnabled(): boolean {
+		return this.settings.latestSectionEnabled;
 	}
 
 	private getFilesSnapshot(): LatestFile[] {
@@ -520,7 +522,7 @@ export default class LaunchpadPlugin
 
 	focusTab(leafId: string): void {
 		this.app.workspace.iterateAllLeaves((leaf) => {
-			if ((leaf as unknown as WorkspaceLeafLike).id === leafId) {
+			if ((leaf as unknown as WorkspaceLeafWithRoot).id === leafId) {
 				this.app.workspace.setActiveLeaf(leaf, { focus: true });
 			}
 		});
@@ -610,6 +612,32 @@ class LaunchpadSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+
+		new Setting(containerEl)
+			.setName(t("settings.tabs.name"))
+			.setDesc(t("settings.tabs.desc"))
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.tabsSectionEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.tabsSectionEnabled = value;
+						await this.plugin.saveSettings();
+						await this.plugin.refreshViews();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName(t("settings.latest.name"))
+			.setDesc(t("settings.latest.desc"))
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.latestSectionEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.latestSectionEnabled = value;
+						await this.plugin.saveSettings();
+						await this.plugin.refreshViews();
+					})
+			);
 
 		new Setting(containerEl)
 			.setName(t("settings.latestCount.name"))
