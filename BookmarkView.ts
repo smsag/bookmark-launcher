@@ -12,6 +12,7 @@ export interface BookmarkViewHost {
 	openSettings(): void;
 	getCollapseState(): Record<string, boolean>;
 	setCollapseState(key: string, collapsed: boolean): Promise<void>;
+	/** Re-parses the bookmarks file and re-renders the panel. */
 	reloadBookmarks(): Promise<void>;
 	openBookmarkUrl(url: string): void;
 	getPreviousFilename(): string | null;
