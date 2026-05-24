@@ -3,6 +3,15 @@ import { BookmarkFolder, BookmarkStore, LatestFile, OpenTab } from "./types";
 import { FOLDER_SEP } from "./BookmarkStore";
 import { t } from "./i18n";
 
+function setIconWithFallback(element: HTMLElement, primaryIcon: string, fallbackIcon: string): void {
+	try {
+		setIcon(element, primaryIcon);
+	} catch {
+		// Some icon names are not available on older Obsidian builds; fallback keeps rendering intact.
+		setIcon(element, fallbackIcon);
+	}
+}
+
 export const VIEW_TYPE_BOOKMARK = "launchpad-view";
 
 export interface BookmarkViewHost {
@@ -141,7 +150,7 @@ export class BookmarkView extends ItemView {
 			cls: "lp-folder-icon",
 			attr: { "aria-hidden": "true" },
 		});
-		setIcon(tabsIconEl, "layout-grid");
+		setIconWithFallback(tabsIconEl, "layout-grid", "layout-dashboard");
 		tabsHeaderEl.createSpan({ text: t("tabs.folder") });
 		const tabsArrow = tabsHeaderEl.createSpan({
 			cls: "launchpad-folder-arrow" + (tabsCollapsed ? " collapsed" : ""),
@@ -188,7 +197,7 @@ export class BookmarkView extends ItemView {
 			cls: "lp-folder-icon",
 			attr: { "aria-hidden": "true" },
 		});
-		setIcon(latestIconEl, "clock");
+		setIconWithFallback(latestIconEl, "clock", "history");
 		latestHeaderEl.createSpan({ text: t("latest.folder") });
 		const latestArrow = latestHeaderEl.createSpan({
 			cls: "launchpad-folder-arrow" + (latestCollapsed ? " collapsed" : ""),
@@ -266,7 +275,7 @@ export class BookmarkView extends ItemView {
 			cls: "lp-folder-icon",
 			attr: { "aria-hidden": "true" },
 		});
-		setIcon(subsectionIconEl, iconName);
+		setIconWithFallback(subsectionIconEl, iconName, "file-text");
 		subsectionHeaderEl.createSpan({ text: label });
 		const subsectionArrowEl = subsectionHeaderEl.createSpan({
 			cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),

@@ -368,6 +368,13 @@ function t(key) {
 }
 
 // BookmarkView.ts
+function setIconWithFallback(element, primaryIcon, fallbackIcon) {
+  try {
+    (0, import_obsidian2.setIcon)(element, primaryIcon);
+  } catch (e) {
+    (0, import_obsidian2.setIcon)(element, fallbackIcon);
+  }
+}
 var VIEW_TYPE_BOOKMARK = "launchpad-view";
 var BookmarkView = class extends import_obsidian2.ItemView {
   constructor(leaf, host) {
@@ -451,7 +458,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       cls: "lp-folder-icon",
       attr: { "aria-hidden": "true" }
     });
-    (0, import_obsidian2.setIcon)(tabsIconEl, "layout-grid");
+    setIconWithFallback(tabsIconEl, "layout-grid", "layout-dashboard");
     tabsHeaderEl.createSpan({ text: t("tabs.folder") });
     const tabsArrow = tabsHeaderEl.createSpan({
       cls: "launchpad-folder-arrow" + (tabsCollapsed ? " collapsed" : ""),
@@ -492,7 +499,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       cls: "lp-folder-icon",
       attr: { "aria-hidden": "true" }
     });
-    (0, import_obsidian2.setIcon)(latestIconEl, "clock");
+    setIconWithFallback(latestIconEl, "clock", "history");
     latestHeaderEl.createSpan({ text: t("latest.folder") });
     const latestArrow = latestHeaderEl.createSpan({
       cls: "launchpad-folder-arrow" + (latestCollapsed ? " collapsed" : ""),
@@ -558,7 +565,7 @@ var BookmarkView = class extends import_obsidian2.ItemView {
       cls: "lp-folder-icon",
       attr: { "aria-hidden": "true" }
     });
-    (0, import_obsidian2.setIcon)(subsectionIconEl, iconName);
+    setIconWithFallback(subsectionIconEl, iconName, "file-text");
     subsectionHeaderEl.createSpan({ text: label });
     const subsectionArrowEl = subsectionHeaderEl.createSpan({
       cls: "launchpad-folder-arrow" + (isCollapsed ? " collapsed" : ""),
