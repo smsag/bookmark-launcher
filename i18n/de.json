@@ -62,5 +62,11 @@
   "setup.confirm.creating": "Wird erstellt…",
   "setup.confirm.saving": "Wird gespeichert…",
   "setup.cancel.new": "Später",
-  "setup.cancel.reconfigure": "Abbrechen"
+  "setup.cancel.reconfigure": "Abbrechen",
+  "quickOpen.placeholder": "Lesezeichen öffnen…",
+  "notice.invalidUrl": "Launchpad: URL enthält ungültige Zeichen und wurde nicht geöffnet.",
+  "notice.invalidVaultPath": "Launchpad: ungültige Vault-Pfad-Kodierung.",
+  "notice.folderNotFound": "Launchpad: Ordner nicht gefunden — {path}",
+  "notice.folderPath": "Launchpad: {path}",
+  "notice.noteNotFound": "Launchpad: Notiz nicht gefunden — {path}"
 }

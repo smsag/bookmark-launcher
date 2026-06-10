@@ -335,7 +335,13 @@ var en_default = {
   "setup.confirm.creating": "Creating\u2026",
   "setup.confirm.saving": "Saving\u2026",
   "setup.cancel.new": "Later",
-  "setup.cancel.reconfigure": "Cancel"
+  "setup.cancel.reconfigure": "Cancel",
+  "quickOpen.placeholder": "Open bookmark\u2026",
+  "notice.invalidUrl": "Launchpad: URL contains invalid characters and was not opened.",
+  "notice.invalidVaultPath": "Launchpad: invalid vault path encoding.",
+  "notice.folderNotFound": "Launchpad: folder not found \u2014 {path}",
+  "notice.folderPath": "Launchpad: {path}",
+  "notice.noteNotFound": "Launchpad: note not found \u2014 {path}"
 };
 
 // i18n/de.json
@@ -403,7 +409,13 @@ var de_default = {
   "setup.confirm.creating": "Wird erstellt\u2026",
   "setup.confirm.saving": "Wird gespeichert\u2026",
   "setup.cancel.new": "Sp\xE4ter",
-  "setup.cancel.reconfigure": "Abbrechen"
+  "setup.cancel.reconfigure": "Abbrechen",
+  "quickOpen.placeholder": "Lesezeichen \xF6ffnen\u2026",
+  "notice.invalidUrl": "Launchpad: URL enth\xE4lt ung\xFCltige Zeichen und wurde nicht ge\xF6ffnet.",
+  "notice.invalidVaultPath": "Launchpad: ung\xFCltige Vault-Pfad-Kodierung.",
+  "notice.folderNotFound": "Launchpad: Ordner nicht gefunden \u2014 {path}",
+  "notice.folderPath": "Launchpad: {path}",
+  "notice.noteNotFound": "Launchpad: Notiz nicht gefunden \u2014 {path}"
 };
 
 // i18n.ts
@@ -1212,7 +1224,7 @@ var BookmarkQuickOpenModal = class extends import_obsidian8.FuzzySuggestModal {
     this.host = host;
     this.recentUrls = recentUrls;
     this.allEntries = flattenStore(store);
-    this.setPlaceholder("Open bookmark\u2026");
+    this.setPlaceholder(t("quickOpen.placeholder"));
   }
   getSuggestions(query) {
     if (!query) {
@@ -1317,7 +1329,7 @@ var LaunchpadHost = class {
   }
   openBookmarkUrl(url) {
     if (/[\x00-\x1f\x7f]/.test(url)) {
-      new import_obsidian9.Notice("Launchpad: URL contains invalid characters and was not opened.");
+      new import_obsidian9.Notice(t("notice.invalidUrl"));
       return;
     }
     if (url.startsWith("vault://")) {
@@ -1325,12 +1337,12 @@ var LaunchpadHost = class {
       try {
         folderPath = decodeURIComponent(url.slice("vault://".length));
       } catch (e) {
-        new import_obsidian9.Notice("Launchpad: invalid vault path encoding.");
+        new import_obsidian9.Notice(t("notice.invalidVaultPath"));
         return;
       }
       const folder = this.deps.app.vault.getAbstractFileByPath(folderPath);
       if (!(folder instanceof import_obsidian9.TFolder)) {
-        new import_obsidian9.Notice(`Launchpad: folder not found \u2014 ${folderPath}`);
+        new import_obsidian9.Notice(t("notice.folderNotFound").replace("{path}", folderPath));
         return;
       }
       const leaves = this.deps.app.workspace.getLeavesOfType("file-explorer");
@@ -1345,12 +1357,12 @@ var LaunchpadHost = class {
         } catch (e) {
         }
       }
-      new import_obsidian9.Notice(`Launchpad: ${folderPath}`);
+      new import_obsidian9.Notice(t("notice.folderPath").replace("{path}", folderPath));
     } else if (url.startsWith("note://")) {
       const notePath = url.slice("note://".length);
       const file = this.deps.app.metadataCache.getFirstLinkpathDest(notePath, "");
       if (!file) {
-        new import_obsidian9.Notice(`Launchpad: note not found \u2014 ${notePath}`);
+        new import_obsidian9.Notice(t("notice.noteNotFound").replace("{path}", notePath));
         return;
       }
       void this.deps.app.workspace.getLeaf(false).openFile(file);

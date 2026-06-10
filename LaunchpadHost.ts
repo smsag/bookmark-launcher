@@ -5,6 +5,7 @@ import { BookmarkStore, LatestFile, OpenTab } from "./types";
 import { CaptureModal } from "./CaptureModal";
 import { SetupModal } from "./SetupModal";
 import { BookmarkQuickOpenModal } from "./BookmarkQuickOpen";
+import { t } from "./i18n";
 
 interface FileExplorerViewLike {
 	revealInFolder?: (folder: TFolder) => void;
@@ -129,7 +130,7 @@ export class LaunchpadHost implements BookmarkViewHost {
 
 	openBookmarkUrl(url: string): void {
 		if (/[\x00-\x1f\x7f]/.test(url)) {
-			new Notice("Launchpad: URL contains invalid characters and was not opened.");
+			new Notice(t("notice.invalidUrl"));
 			return;
 		}
 
@@ -138,12 +139,12 @@ export class LaunchpadHost implements BookmarkViewHost {
 			try {
 				folderPath = decodeURIComponent(url.slice("vault://".length));
 			} catch {
-				new Notice("Launchpad: invalid vault path encoding.");
+				new Notice(t("notice.invalidVaultPath"));
 				return;
 			}
 			const folder = this.deps.app.vault.getAbstractFileByPath(folderPath);
 			if (!(folder instanceof TFolder)) {
-				new Notice(`Launchpad: folder not found — ${folderPath}`);
+				new Notice(t("notice.folderNotFound").replace("{path}", folderPath));
 				return;
 			}
 			const leaves = this.deps.app.workspace.getLeavesOfType("file-explorer");
@@ -159,12 +160,12 @@ export class LaunchpadHost implements BookmarkViewHost {
 					// fall through to Notice
 				}
 			}
-			new Notice(`Launchpad: ${folderPath}`);
+			new Notice(t("notice.folderPath").replace("{path}", folderPath));
 		} else if (url.startsWith("note://")) {
 			const notePath = url.slice("note://".length);
 			const file = this.deps.app.metadataCache.getFirstLinkpathDest(notePath, "");
 			if (!file) {
-				new Notice(`Launchpad: note not found — ${notePath}`);
+				new Notice(t("notice.noteNotFound").replace("{path}", notePath));
 				return;
 			}
 			void this.deps.app.workspace.getLeaf(false).openFile(file);

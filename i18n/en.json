@@ -62,5 +62,11 @@
   "setup.confirm.creating": "Creating…",
   "setup.confirm.saving": "Saving…",
   "setup.cancel.new": "Later",
-  "setup.cancel.reconfigure": "Cancel"
+  "setup.cancel.reconfigure": "Cancel",
+  "quickOpen.placeholder": "Open bookmark…",
+  "notice.invalidUrl": "Launchpad: URL contains invalid characters and was not opened.",
+  "notice.invalidVaultPath": "Launchpad: invalid vault path encoding.",
+  "notice.folderNotFound": "Launchpad: folder not found — {path}",
+  "notice.folderPath": "Launchpad: {path}",
+  "notice.noteNotFound": "Launchpad: note not found — {path}"
 }

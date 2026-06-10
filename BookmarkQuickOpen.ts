@@ -1,6 +1,7 @@
 import { App, FuzzyMatch, FuzzySuggestModal, prepareFuzzySearch } from "obsidian";
 import { Bookmark, BookmarkFolder, BookmarkStore } from "./types";
 import { LaunchpadHost } from "./LaunchpadHost";
+import { t } from "./i18n";
 
 interface BookmarkEntry {
 	bookmark: Bookmark;
@@ -39,7 +40,7 @@ export class BookmarkQuickOpenModal extends FuzzySuggestModal<BookmarkEntry> {
 		this.host = host;
 		this.recentUrls = recentUrls;
 		this.allEntries = flattenStore(store);
-		this.setPlaceholder("Open bookmark…");
+		this.setPlaceholder(t("quickOpen.placeholder"));
 	}
 
 	getSuggestions(query: string): FuzzyMatch<BookmarkEntry>[] {
