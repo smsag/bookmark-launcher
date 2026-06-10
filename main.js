@@ -29,7 +29,7 @@ __export(main_exports, {
   sanitizePluginData: () => sanitizePluginData
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // BookmarkStore.ts
 var import_obsidian = require("obsidian");
@@ -888,7 +888,7 @@ var BookmarkView = class extends import_obsidian5.ItemView {
 };
 
 // LaunchpadHost.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // CaptureModal.ts
 var import_obsidian6 = require("obsidian");
@@ -1184,6 +1184,68 @@ var SetupModal = class extends import_obsidian7.Modal {
   }
 };
 
+// BookmarkQuickOpen.ts
+var import_obsidian8 = require("obsidian");
+function flattenFolder(folder, prefix) {
+  const entries = [];
+  for (const bm of folder.bookmarks) {
+    entries.push({ bookmark: bm, folderPath: prefix });
+  }
+  for (const sub of folder.subfolders) {
+    entries.push(...flattenFolder(sub, `${prefix} \u203A ${sub.name}`));
+  }
+  return entries;
+}
+function flattenStore(store) {
+  const entries = [];
+  for (const folder of store.folders) {
+    entries.push(...flattenFolder(folder, folder.name));
+  }
+  for (const bm of store.uncategorized) {
+    entries.push({ bookmark: bm, folderPath: "" });
+  }
+  return entries;
+}
+var BookmarkQuickOpenModal = class extends import_obsidian8.FuzzySuggestModal {
+  constructor(app, store, recentUrls, host) {
+    super(app);
+    this.host = host;
+    this.recentUrls = recentUrls;
+    this.allEntries = flattenStore(store);
+    this.setPlaceholder("Open bookmark\u2026");
+  }
+  getSuggestions(query) {
+    if (!query) {
+      return this.recentUrls.map((url) => this.allEntries.find((e) => e.bookmark.url === url)).filter((e) => e !== void 0).map((item) => ({ item, match: { score: 0, matches: [] } }));
+    }
+    const search = (0, import_obsidian8.prepareFuzzySearch)(query);
+    const results = [];
+    for (const item of this.allEntries) {
+      const match = search(item.bookmark.name);
+      if (match)
+        results.push({ item, match });
+    }
+    return results.sort((a, b) => b.match.score - a.match.score);
+  }
+  // Required by FuzzySuggestModal but unused — getSuggestions is overridden.
+  getItems() {
+    return this.allEntries;
+  }
+  getItemText(entry) {
+    return entry.bookmark.name;
+  }
+  renderSuggestion(match, el) {
+    const { item } = match;
+    el.createEl("div", { text: item.bookmark.name, cls: "lp-qo-name" });
+    if (item.folderPath)
+      el.createEl("div", { text: item.folderPath, cls: "lp-qo-meta" });
+  }
+  onChooseItem(entry) {
+    this.host.openBookmarkUrl(entry.bookmark.url);
+    this.host.recordRecentBookmark(entry.bookmark.url);
+  }
+};
+
 // LaunchpadHost.ts
 var LaunchpadHost = class {
   constructor(deps) {
@@ -1230,6 +1292,19 @@ var LaunchpadHost = class {
       this.deps.getSettings().bookmarksFilePath
     ).open();
   }
+  async openBookmarkQuickOpen() {
+    var _a2;
+    const store = (_a2 = this.lastKnownStore) != null ? _a2 : await this.deps.store.parse();
+    new BookmarkQuickOpenModal(
+      this.deps.app,
+      store,
+      this.deps.getRecentBookmarkUrls(),
+      this
+    ).open();
+  }
+  recordRecentBookmark(url) {
+    this.deps.recordRecentBookmark(url);
+  }
   openSettings() {
     const settingsApi = this.deps.app.setting;
     if (settingsApi && typeof settingsApi.open === "function") {
@@ -1242,7 +1317,7 @@ var LaunchpadHost = class {
   }
   openBookmarkUrl(url) {
     if (/[\x00-\x1f\x7f]/.test(url)) {
-      new import_obsidian8.Notice("Launchpad: URL contains invalid characters and was not opened.");
+      new import_obsidian9.Notice("Launchpad: URL contains invalid characters and was not opened.");
       return;
     }
     if (url.startsWith("vault://")) {
@@ -1250,12 +1325,12 @@ var LaunchpadHost = class {
       try {
         folderPath = decodeURIComponent(url.slice("vault://".length));
       } catch (e) {
-        new import_obsidian8.Notice("Launchpad: invalid vault path encoding.");
+        new import_obsidian9.Notice("Launchpad: invalid vault path encoding.");
         return;
       }
       const folder = this.deps.app.vault.getAbstractFileByPath(folderPath);
-      if (!(folder instanceof import_obsidian8.TFolder)) {
-        new import_obsidian8.Notice(`Launchpad: folder not found \u2014 ${folderPath}`);
+      if (!(folder instanceof import_obsidian9.TFolder)) {
+        new import_obsidian9.Notice(`Launchpad: folder not found \u2014 ${folderPath}`);
         return;
       }
       const leaves = this.deps.app.workspace.getLeavesOfType("file-explorer");
@@ -1270,12 +1345,12 @@ var LaunchpadHost = class {
         } catch (e) {
         }
       }
-      new import_obsidian8.Notice(`Launchpad: ${folderPath}`);
+      new import_obsidian9.Notice(`Launchpad: ${folderPath}`);
     } else if (url.startsWith("note://")) {
       const notePath = url.slice("note://".length);
       const file = this.deps.app.metadataCache.getFirstLinkpathDest(notePath, "");
       if (!file) {
-        new import_obsidian8.Notice(`Launchpad: note not found \u2014 ${notePath}`);
+        new import_obsidian9.Notice(`Launchpad: note not found \u2014 ${notePath}`);
         return;
       }
       void this.deps.app.workspace.getLeaf(false).openFile(file);
@@ -1296,7 +1371,7 @@ var LaunchpadHost = class {
     if (!file)
       return;
     this.previousFile = null;
-    if (!(this.deps.app.vault.getAbstractFileByPath(file.path) instanceof import_obsidian8.TFile)) {
+    if (!(this.deps.app.vault.getAbstractFileByPath(file.path) instanceof import_obsidian9.TFile)) {
       await this.deps.refreshViews();
       return;
     }
@@ -1376,13 +1451,13 @@ var LaunchpadHost = class {
   }
   openLatestFile(path) {
     const file = this.deps.app.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian8.TFile) {
+    if (file instanceof import_obsidian9.TFile) {
       void this.deps.app.workspace.getLeaf(false).openFile(file);
     }
   }
   async deleteLatestFile(path) {
     const file = this.deps.app.vault.getAbstractFileByPath(path);
-    if (file instanceof import_obsidian8.TFile) {
+    if (file instanceof import_obsidian9.TFile) {
       await this.deps.app.vault.trash(file, true);
       await this.deps.refreshViews();
     }
@@ -1393,8 +1468,8 @@ var LaunchpadHost = class {
 };
 
 // SettingsTab.ts
-var import_obsidian9 = require("obsidian");
-var LaunchpadSettingTab = class extends import_obsidian9.PluginSettingTab {
+var import_obsidian10 = require("obsidian");
+var LaunchpadSettingTab = class extends import_obsidian10.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -1402,21 +1477,21 @@ var LaunchpadSettingTab = class extends import_obsidian9.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian9.Setting(containerEl).setName(t("settings.tabs.name")).setDesc(t("settings.tabs.desc")).addToggle(
+    new import_obsidian10.Setting(containerEl).setName(t("settings.tabs.name")).setDesc(t("settings.tabs.desc")).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.tabsSectionEnabled).onChange(async (value) => {
         this.plugin.settings.tabsSectionEnabled = value;
         await this.plugin.saveSettings();
         await this.plugin.refreshViews();
       })
     );
-    new import_obsidian9.Setting(containerEl).setName(t("settings.latest.name")).setDesc(t("settings.latest.desc")).addToggle(
+    new import_obsidian10.Setting(containerEl).setName(t("settings.latest.name")).setDesc(t("settings.latest.desc")).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.latestSectionEnabled).onChange(async (value) => {
         this.plugin.settings.latestSectionEnabled = value;
         await this.plugin.saveSettings();
         await this.plugin.refreshViews();
       })
     );
-    new import_obsidian9.Setting(containerEl).setName(t("settings.latest.exclude.name")).setDesc(t("settings.latest.exclude.desc")).addText(
+    new import_obsidian10.Setting(containerEl).setName(t("settings.latest.exclude.name")).setDesc(t("settings.latest.exclude.desc")).addText(
       (text) => text.setPlaceholder("bookmarks.md, Resources/journal.md").setValue(this.plugin.settings.latestExcludedFiles).onChange(async (value) => {
         this.plugin.settings.latestExcludedFiles = value;
         this.plugin.invalidateExcludedPathsCache();
@@ -1424,7 +1499,7 @@ var LaunchpadSettingTab = class extends import_obsidian9.PluginSettingTab {
         await this.plugin.refreshViews();
       })
     );
-    new import_obsidian9.Setting(containerEl).setName(t("settings.latestCount.name")).setDesc(t("settings.latestCount.desc")).addText(
+    new import_obsidian10.Setting(containerEl).setName(t("settings.latestCount.name")).setDesc(t("settings.latestCount.desc")).addText(
       (text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.latestFilesCount)).onChange(async (value) => {
         const n = parseInt(value, 10);
         if (!isNaN(n) && n > 0 && n <= LATEST_FILES_COUNT_MAX) {
@@ -1434,7 +1509,7 @@ var LaunchpadSettingTab = class extends import_obsidian9.PluginSettingTab {
         }
       })
     );
-    new import_obsidian9.Setting(containerEl).setName(t("settings.latestDelete.name")).setDesc(t("settings.latestDelete.desc")).addToggle(
+    new import_obsidian10.Setting(containerEl).setName(t("settings.latestDelete.name")).setDesc(t("settings.latestDelete.desc")).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.latestDeleteEnabled).onChange(async (value) => {
         this.plugin.settings.latestDeleteEnabled = value;
         await this.plugin.saveSettings();
@@ -1460,6 +1535,7 @@ function sanitizePluginData(raw) {
   const tabsSectionEnabled = typeof data.tabsSectionEnabled === "boolean" ? data.tabsSectionEnabled : DEFAULT_DATA.tabsSectionEnabled;
   const latestSectionEnabled = typeof data.latestSectionEnabled === "boolean" ? data.latestSectionEnabled : DEFAULT_DATA.latestSectionEnabled;
   const latestExcludedFiles = typeof data.latestExcludedFiles === "string" ? data.latestExcludedFiles : DEFAULT_DATA.latestExcludedFiles;
+  const recentBookmarkUrls = Array.isArray(data.recentBookmarkUrls) ? data.recentBookmarkUrls.filter((v) => typeof v === "string").slice(0, 5) : DEFAULT_DATA.recentBookmarkUrls;
   return {
     collapseState,
     bookmarksFilePath,
@@ -1467,7 +1543,8 @@ function sanitizePluginData(raw) {
     latestDeleteEnabled,
     tabsSectionEnabled,
     latestSectionEnabled,
-    latestExcludedFiles
+    latestExcludedFiles,
+    recentBookmarkUrls
   };
 }
 var DEFAULT_DATA = {
@@ -1477,9 +1554,10 @@ var DEFAULT_DATA = {
   latestDeleteEnabled: false,
   tabsSectionEnabled: true,
   latestSectionEnabled: true,
-  latestExcludedFiles: ""
+  latestExcludedFiles: "",
+  recentBookmarkUrls: []
 };
-var LaunchpadPlugin = class extends import_obsidian10.Plugin {
+var LaunchpadPlugin = class extends import_obsidian11.Plugin {
   constructor() {
     super(...arguments);
     /** Pending exponential-backoff retry for refreshViews when iCloud read fails. */
@@ -1517,6 +1595,12 @@ var LaunchpadPlugin = class extends import_obsidian10.Plugin {
       refreshViews: () => this.refreshViews(),
       revealPanel: () => this.revealPanel(),
       getCollapseStateRecord: () => this.data.collapseState,
+      getRecentBookmarkUrls: () => this.data.recentBookmarkUrls,
+      recordRecentBookmark: (url) => {
+        const filtered = this.data.recentBookmarkUrls.filter((u) => u !== url);
+        this.data.recentBookmarkUrls = [url, ...filtered].slice(0, 5);
+        void this.saveSettings();
+      },
       setCollapseStateRecord: (key, collapsed) => {
         this.data.collapseState[key] = collapsed;
         if (this.collapseDebounceTimer !== null) {
@@ -1531,6 +1615,11 @@ var LaunchpadPlugin = class extends import_obsidian10.Plugin {
     this.registerView(VIEW_TYPE_BOOKMARK, (leaf) => new BookmarkView(leaf, this.host));
     this.addRibbonIcon("rocket", "Launchpad", () => this.revealPanel());
     this.addCommand({
+      id: "open-bookmark",
+      name: "Open bookmark",
+      callback: () => void this.host.openBookmarkQuickOpen()
+    });
+    this.addCommand({
       id: "add-bookmark",
       name: "Add bookmark",
       callback: () => this.host.openCaptureModal()
@@ -1540,33 +1629,28 @@ var LaunchpadPlugin = class extends import_obsidian10.Plugin {
       name: "Open panel",
       callback: () => this.revealPanel()
     });
-    this.addCommand({
-      id: "configure-file",
-      name: "Configure bookmarks file location",
-      callback: () => this.host.openSetupModal()
-    });
     this.addSettingTab(new LaunchpadSettingTab(this.app, this));
     const onBookmarksFileModify = (file) => {
-      if (file instanceof import_obsidian10.TFile && file.path === this.store.getFilePath())
+      if (file instanceof import_obsidian11.TFile && file.path === this.store.getFilePath())
         this.refreshViews();
     };
     this.registerEvent(this.app.vault.on("modify", onBookmarksFileModify));
     const onBookmarksFileCreate = (file) => {
-      if (file instanceof import_obsidian10.TFile && file.path === this.store.getFilePath())
+      if (file instanceof import_obsidian11.TFile && file.path === this.store.getFilePath())
         this.refreshViews();
     };
     this.registerEvent(this.app.vault.on("create", onBookmarksFileCreate));
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         const path = this.store.getFilePath();
-        if (file instanceof import_obsidian10.TFile && (file.path === path || oldPath === path)) {
+        if (file instanceof import_obsidian11.TFile && (file.path === path || oldPath === path)) {
           this.refreshViews();
         }
       })
     );
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
-        if (!(file instanceof import_obsidian10.TFolder))
+        if (!(file instanceof import_obsidian11.TFolder))
           return;
         const launchpadPath = "vault://" + file.path.split("/").map(encodeURIComponent).join("/");
         menu.addItem(
@@ -1617,7 +1701,7 @@ var LaunchpadPlugin = class extends import_obsidian10.Plugin {
       return;
     }
     const legacyFile = this.app.vault.getAbstractFileByPath(DEFAULT_BOOKMARKS_FILE);
-    if (legacyFile instanceof import_obsidian10.TFile) {
+    if (legacyFile instanceof import_obsidian11.TFile) {
       await this.adoptPath(DEFAULT_BOOKMARKS_FILE);
       await this.openAndRefresh();
       return;
