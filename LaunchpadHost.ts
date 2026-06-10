@@ -4,6 +4,7 @@ import { BookmarkViewHost, VIEW_TYPE_BOOKMARK } from "./BookmarkView";
 import { BookmarkStore, LatestFile, OpenTab } from "./types";
 import { CaptureModal } from "./CaptureModal";
 import { SetupModal } from "./SetupModal";
+import { BookmarkQuickOpenModal } from "./BookmarkQuickOpen";
 
 interface FileExplorerViewLike {
 	revealInFolder?: (folder: TFolder) => void;
@@ -33,6 +34,8 @@ export interface LaunchpadHostDeps {
 	revealPanel: () => Promise<void>;
 	getCollapseStateRecord: () => Record<string, boolean>;
 	setCollapseStateRecord: (key: string, collapsed: boolean) => void;
+	getRecentBookmarkUrls: () => string[];
+	recordRecentBookmark: (url: string) => void;
 }
 
 export interface LaunchpadHostSettings {
@@ -96,6 +99,20 @@ export class LaunchpadHost implements BookmarkViewHost {
 			},
 			this.deps.getSettings().bookmarksFilePath,
 		).open();
+	}
+
+	async openBookmarkQuickOpen(): Promise<void> {
+		const store = this.lastKnownStore ?? await this.deps.store.parse();
+		new BookmarkQuickOpenModal(
+			this.deps.app,
+			store,
+			this.deps.getRecentBookmarkUrls(),
+			this,
+		).open();
+	}
+
+	recordRecentBookmark(url: string): void {
+		this.deps.recordRecentBookmark(url);
 	}
 
 	openSettings(): void {
