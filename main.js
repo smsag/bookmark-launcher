@@ -36,6 +36,8 @@ var import_obsidian = require("obsidian");
 var DEFAULT_BOOKMARKS_FILE = "bookmarks.md";
 var BOOKMARK_RE = /^\s*-\s+\[(.+?)\]\((.+)\)\s*$/;
 var ALLOWED_SCHEMES = ["https://", "http://", "obsidian://", "vault://", "note://"];
+var RECENT_RE = /<!-- launchpad:recent (\[.*?\]) -->/;
+var RECENT_RE_LINE = /<!-- launchpad:recent \[.*?\] -->\n?/;
 var FOLDER_SEP = "";
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -136,7 +138,17 @@ var BookmarkStoreManager = class {
   }
   parseContent(content) {
     const lines = content.split("\n");
-    const store = { folders: [], uncategorized: [] };
+    const store = { folders: [], uncategorized: [], recentUrls: [] };
+    const recentMatch = content.match(RECENT_RE);
+    if (recentMatch) {
+      try {
+        const parsed = JSON.parse(recentMatch[1]);
+        if (Array.isArray(parsed)) {
+          store.recentUrls = parsed.filter((v) => typeof v === "string").slice(0, 5);
+        }
+      } catch (e) {
+      }
+    }
     let currentFolder = null;
     let currentSubfolder = null;
     for (const line of lines) {
@@ -177,6 +189,10 @@ var BookmarkStoreManager = class {
   }
   serialize(store) {
     const parts = [];
+    if (store.recentUrls && store.recentUrls.length > 0) {
+      parts.push(`<!-- launchpad:recent ${JSON.stringify(store.recentUrls)} -->`);
+      parts.push("");
+    }
     if (store.uncategorized.length > 0) {
       for (const bm of store.uncategorized) {
         parts.push(`- [${bm.name}](${bm.url})`);
@@ -263,6 +279,19 @@ var BookmarkStoreManager = class {
         }
       }
       return this.serialize(store);
+    });
+  }
+  async writeRecentUrls(urls) {
+    const f = await this.ensureFile();
+    await this.app.vault.process(f, (content) => {
+      if (urls.length === 0) {
+        return content.replace(RECENT_RE_LINE, "");
+      }
+      const newLine = `<!-- launchpad:recent ${JSON.stringify(urls)} -->`;
+      if (RECENT_RE.test(content)) {
+        return content.replace(RECENT_RE, newLine);
+      }
+      return newLine + "\n" + content;
     });
   }
 };
@@ -1267,13 +1296,13 @@ var BookmarkQuickOpenModal = class extends import_obsidian8.FuzzySuggestModal {
         pushFolderTree(sub, label);
       }
     };
-    for (const folder of this.store.folders) {
-      pushFolderTree(folder, "");
-    }
     if (this.store.uncategorized.length > 0) {
       for (const bm of this.store.uncategorized) {
         push({ type: "bookmark", entry: { bookmark: bm, folderPath: "" }, showPath: false });
       }
+    }
+    for (const folder of this.store.folders) {
+      pushFolderTree(folder, "");
     }
     return items;
   }
@@ -1355,17 +1384,20 @@ var LaunchpadHost = class {
     ).open();
   }
   async openBookmarkQuickOpen() {
-    var _a2;
+    var _a2, _b;
     const store = (_a2 = this.lastKnownStore) != null ? _a2 : await this.deps.store.parse();
     new BookmarkQuickOpenModal(
       this.deps.app,
       store,
-      this.deps.getRecentBookmarkUrls(),
+      (_b = store.recentUrls) != null ? _b : [],
       this
     ).open();
   }
   recordRecentBookmark(url) {
-    this.deps.recordRecentBookmark(url);
+    var _a2, _b;
+    const current = (_b = (_a2 = this.lastKnownStore) == null ? void 0 : _a2.recentUrls) != null ? _b : [];
+    const updated = [url, ...current.filter((u) => u !== url)].slice(0, 5);
+    void this.deps.store.writeRecentUrls(updated);
   }
   openSettings() {
     const settingsApi = this.deps.app.setting;
@@ -1597,7 +1629,6 @@ function sanitizePluginData(raw) {
   const tabsSectionEnabled = typeof data.tabsSectionEnabled === "boolean" ? data.tabsSectionEnabled : DEFAULT_DATA.tabsSectionEnabled;
   const latestSectionEnabled = typeof data.latestSectionEnabled === "boolean" ? data.latestSectionEnabled : DEFAULT_DATA.latestSectionEnabled;
   const latestExcludedFiles = typeof data.latestExcludedFiles === "string" ? data.latestExcludedFiles : DEFAULT_DATA.latestExcludedFiles;
-  const recentBookmarkUrls = Array.isArray(data.recentBookmarkUrls) ? data.recentBookmarkUrls.filter((v) => typeof v === "string").slice(0, 5) : DEFAULT_DATA.recentBookmarkUrls;
   return {
     collapseState,
     bookmarksFilePath,
@@ -1605,8 +1636,7 @@ function sanitizePluginData(raw) {
     latestDeleteEnabled,
     tabsSectionEnabled,
     latestSectionEnabled,
-    latestExcludedFiles,
-    recentBookmarkUrls
+    latestExcludedFiles
   };
 }
 var DEFAULT_DATA = {
@@ -1616,8 +1646,7 @@ var DEFAULT_DATA = {
   latestDeleteEnabled: false,
   tabsSectionEnabled: true,
   latestSectionEnabled: true,
-  latestExcludedFiles: "",
-  recentBookmarkUrls: []
+  latestExcludedFiles: ""
 };
 var LaunchpadPlugin = class extends import_obsidian11.Plugin {
   constructor() {
@@ -1657,12 +1686,6 @@ var LaunchpadPlugin = class extends import_obsidian11.Plugin {
       refreshViews: () => this.refreshViews(),
       revealPanel: () => this.revealPanel(),
       getCollapseStateRecord: () => this.data.collapseState,
-      getRecentBookmarkUrls: () => this.data.recentBookmarkUrls,
-      recordRecentBookmark: (url) => {
-        const filtered = this.data.recentBookmarkUrls.filter((u) => u !== url);
-        this.data.recentBookmarkUrls = [url, ...filtered].slice(0, 5);
-        void this.saveSettings();
-      },
       setCollapseStateRecord: (key, collapsed) => {
         this.data.collapseState[key] = collapsed;
         if (this.collapseDebounceTimer !== null) {

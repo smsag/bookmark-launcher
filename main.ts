@@ -23,7 +23,6 @@ interface PluginData {
 	tabsSectionEnabled: boolean;
 	latestSectionEnabled: boolean;
 	latestExcludedFiles: string;
-	recentBookmarkUrls: string[];
 }
 
 /**
@@ -73,13 +72,6 @@ export function sanitizePluginData(raw: unknown): PluginData {
 			? data.latestExcludedFiles
 			: DEFAULT_DATA.latestExcludedFiles;
 
-	const recentBookmarkUrls =
-		Array.isArray(data.recentBookmarkUrls)
-			? (data.recentBookmarkUrls as unknown[])
-				.filter((v): v is string => typeof v === "string")
-				.slice(0, 5)
-			: DEFAULT_DATA.recentBookmarkUrls;
-
 	return {
 		collapseState,
 		bookmarksFilePath,
@@ -88,7 +80,6 @@ export function sanitizePluginData(raw: unknown): PluginData {
 		tabsSectionEnabled,
 		latestSectionEnabled,
 		latestExcludedFiles,
-		recentBookmarkUrls,
 	};
 }
 
@@ -100,7 +91,6 @@ const DEFAULT_DATA: PluginData = {
 	tabsSectionEnabled: true,
 	latestSectionEnabled: true,
 	latestExcludedFiles: "",
-	recentBookmarkUrls: [],
 };
 
 export default class LaunchpadPlugin extends Plugin {
@@ -147,12 +137,6 @@ export default class LaunchpadPlugin extends Plugin {
 			refreshViews: () => this.refreshViews(),
 			revealPanel: () => this.revealPanel(),
 			getCollapseStateRecord: () => this.data.collapseState,
-			getRecentBookmarkUrls: () => this.data.recentBookmarkUrls,
-			recordRecentBookmark: (url: string) => {
-				const filtered = this.data.recentBookmarkUrls.filter(u => u !== url);
-				this.data.recentBookmarkUrls = [url, ...filtered].slice(0, 5);
-				void this.saveSettings();
-			},
 			setCollapseStateRecord: (key, collapsed) => {
 				this.data.collapseState[key] = collapsed;
 				if (this.collapseDebounceTimer !== null) {

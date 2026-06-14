@@ -97,14 +97,14 @@ export class BookmarkQuickOpenModal extends FuzzySuggestModal<QuickOpenItem> {
 			}
 		};
 
-		for (const folder of this.store.folders) {
-			pushFolderTree(folder, "");
-		}
-
 		if (this.store.uncategorized.length > 0) {
 			for (const bm of this.store.uncategorized) {
 				push({ type: "bookmark", entry: { bookmark: bm, folderPath: "" }, showPath: false });
 			}
+		}
+
+		for (const folder of this.store.folders) {
+			pushFolderTree(folder, "");
 		}
 
 		return items;

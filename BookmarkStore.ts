@@ -13,6 +13,11 @@ const BOOKMARK_RE = /^\s*-\s+\[(.+?)\]\((.+)\)\s*$/;
 // is silently dropped at parse time so it never reaches the view layer.
 const ALLOWED_SCHEMES = ["https://", "http://", "obsidian://", "vault://", "note://"];
 
+// Matches the hidden recents comment: <!-- launchpad:recent ["url1","url2"] -->
+const RECENT_RE = /<!-- launchpad:recent (\[.*?\]) -->/;
+// Same pattern but also consumes the trailing newline for clean removal.
+const RECENT_RE_LINE = /<!-- launchpad:recent \[.*?\] -->\n?/;
+
 // Separator used in composite folder option values (e.g. "Work\x1FDesign").
 // ASCII Unit Separator (U+001F) cannot appear in user-typed text, so it
 // unambiguously separates parent and child folder names even when those
@@ -148,7 +153,21 @@ export class BookmarkStoreManager {
 
 	parseContent(content: string): BookmarkStore {
 		const lines = content.split("\n");
-		const store: BookmarkStore = { folders: [], uncategorized: [] };
+		const store: BookmarkStore = { folders: [], uncategorized: [], recentUrls: [] };
+
+		const recentMatch = content.match(RECENT_RE);
+		if (recentMatch) {
+			try {
+				const parsed = JSON.parse(recentMatch[1]);
+				if (Array.isArray(parsed)) {
+					store.recentUrls = parsed
+						.filter((v): v is string => typeof v === "string")
+						.slice(0, 5);
+				}
+			} catch {
+				// Ignore malformed comment
+			}
+		}
 		let currentFolder: BookmarkFolder | null = null;
 		let currentSubfolder: BookmarkFolder | null = null;
 
@@ -194,6 +213,11 @@ export class BookmarkStoreManager {
 
 	serialize(store: BookmarkStore): string {
 		const parts: string[] = [];
+
+		if (store.recentUrls && store.recentUrls.length > 0) {
+			parts.push(`<!-- launchpad:recent ${JSON.stringify(store.recentUrls)} -->`);
+			parts.push("");
+		}
 
 		if (store.uncategorized.length > 0) {
 			for (const bm of store.uncategorized) {
@@ -299,6 +323,20 @@ export class BookmarkStoreManager {
 			}
 
 			return this.serialize(store);
+		});
+	}
+
+	async writeRecentUrls(urls: string[]): Promise<void> {
+		const f = await this.ensureFile();
+		await this.app.vault.process(f, (content) => {
+			if (urls.length === 0) {
+				return content.replace(RECENT_RE_LINE, "");
+			}
+			const newLine = `<!-- launchpad:recent ${JSON.stringify(urls)} -->`;
+			if (RECENT_RE.test(content)) {
+				return content.replace(RECENT_RE, newLine);
+			}
+			return newLine + "\n" + content;
 		});
 	}
 }

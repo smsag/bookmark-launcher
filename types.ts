@@ -15,6 +15,7 @@ export interface BookmarkFolder {
 export interface BookmarkStore {
 	folders: BookmarkFolder[];
 	uncategorized: Bookmark[];
+	recentUrls?: string[];
 }
 
 export interface FolderOption {

@@ -35,8 +35,6 @@ export interface LaunchpadHostDeps {
 	revealPanel: () => Promise<void>;
 	getCollapseStateRecord: () => Record<string, boolean>;
 	setCollapseStateRecord: (key: string, collapsed: boolean) => void;
-	getRecentBookmarkUrls: () => string[];
-	recordRecentBookmark: (url: string) => void;
 }
 
 export interface LaunchpadHostSettings {
@@ -107,13 +105,15 @@ export class LaunchpadHost implements BookmarkViewHost {
 		new BookmarkQuickOpenModal(
 			this.deps.app,
 			store,
-			this.deps.getRecentBookmarkUrls(),
+			store.recentUrls ?? [],
 			this,
 		).open();
 	}
 
 	recordRecentBookmark(url: string): void {
-		this.deps.recordRecentBookmark(url);
+		const current = this.lastKnownStore?.recentUrls ?? [];
+		const updated = [url, ...current.filter(u => u !== url)].slice(0, 5);
+		void this.deps.store.writeRecentUrls(updated);
 	}
 
 	openSettings(): void {
