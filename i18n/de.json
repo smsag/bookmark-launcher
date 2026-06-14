@@ -64,6 +64,7 @@
   "setup.cancel.new": "Später",
   "setup.cancel.reconfigure": "Abbrechen",
   "quickOpen.placeholder": "Lesezeichen öffnen…",
+  "quickOpen.sectionRecent": "Zuletzt geöffnet",
   "notice.invalidUrl": "Launchpad: URL enthält ungültige Zeichen und wurde nicht geöffnet.",
   "notice.invalidVaultPath": "Launchpad: ungültige Vault-Pfad-Kodierung.",
   "notice.folderNotFound": "Launchpad: Ordner nicht gefunden — {path}",

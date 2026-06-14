@@ -337,6 +337,7 @@ var en_default = {
   "setup.cancel.new": "Later",
   "setup.cancel.reconfigure": "Cancel",
   "quickOpen.placeholder": "Open bookmark\u2026",
+  "quickOpen.sectionRecent": "Recent",
   "notice.invalidUrl": "Launchpad: URL contains invalid characters and was not opened.",
   "notice.invalidVaultPath": "Launchpad: invalid vault path encoding.",
   "notice.folderNotFound": "Launchpad: folder not found \u2014 {path}",
@@ -411,6 +412,7 @@ var de_default = {
   "setup.cancel.new": "Sp\xE4ter",
   "setup.cancel.reconfigure": "Abbrechen",
   "quickOpen.placeholder": "Lesezeichen \xF6ffnen\u2026",
+  "quickOpen.sectionRecent": "Zuletzt ge\xF6ffnet",
   "notice.invalidUrl": "Launchpad: URL enth\xE4lt ung\xFCltige Zeichen und wurde nicht ge\xF6ffnet.",
   "notice.invalidVaultPath": "Launchpad: ung\xFCltige Vault-Pfad-Kodierung.",
   "notice.folderNotFound": "Launchpad: Ordner nicht gefunden \u2014 {path}",
@@ -1218,43 +1220,78 @@ function flattenStore(store) {
   }
   return entries;
 }
+var EMPTY_MATCH = { score: 0, matches: [] };
 var BookmarkQuickOpenModal = class extends import_obsidian8.FuzzySuggestModal {
   constructor(app, store, recentUrls, host) {
     super(app);
     this.host = host;
+    this.store = store;
     this.recentUrls = recentUrls;
     this.allEntries = flattenStore(store);
     this.setPlaceholder(t("quickOpen.placeholder"));
   }
   getSuggestions(query) {
     if (!query) {
-      return this.recentUrls.map((url) => this.allEntries.find((e) => e.bookmark.url === url)).filter((e) => e !== void 0).map((item) => ({ item, match: { score: 0, matches: [] } }));
+      return this.buildCategorizedList();
     }
     const search = (0, import_obsidian8.prepareFuzzySearch)(query);
     const results = [];
-    for (const item of this.allEntries) {
-      const match = search(item.bookmark.name);
+    for (const entry of this.allEntries) {
+      const match = search(entry.bookmark.name);
       if (match)
-        results.push({ item, match });
+        results.push({ item: { type: "bookmark", entry, showPath: true }, match });
     }
     return results.sort((a, b) => b.match.score - a.match.score);
   }
-  // Required by FuzzySuggestModal but unused — getSuggestions is overridden.
-  getItems() {
-    return this.allEntries;
+  buildCategorizedList() {
+    const items = [];
+    const pushHeader = (label) => items.push({ item: { type: "header", label }, match: EMPTY_MATCH });
+    const pushBookmark = (entry, showPath) => items.push({ item: { type: "bookmark", entry, showPath }, match: EMPTY_MATCH });
+    const recentEntries = this.recentUrls.map((url) => this.allEntries.find((e) => e.bookmark.url === url)).filter((e) => e !== void 0);
+    if (recentEntries.length > 0) {
+      pushHeader(t("quickOpen.sectionRecent"));
+      for (const entry of recentEntries)
+        pushBookmark(entry, true);
+    }
+    for (const folder of this.store.folders) {
+      const folderEntries = flattenFolder(folder, folder.name);
+      if (folderEntries.length === 0)
+        continue;
+      pushHeader(folder.name);
+      for (const entry of folderEntries)
+        pushBookmark(entry, false);
+    }
+    if (this.store.uncategorized.length > 0) {
+      pushHeader(t("modal.folder.uncategorized"));
+      for (const bm of this.store.uncategorized) {
+        pushBookmark({ bookmark: bm, folderPath: "" }, false);
+      }
+    }
+    return items;
   }
-  getItemText(entry) {
-    return entry.bookmark.name;
+  // Required by FuzzySuggestModal — not called since getSuggestions is overridden.
+  getItems() {
+    return [];
+  }
+  getItemText(item) {
+    return item.type === "bookmark" ? item.entry.bookmark.name : "";
   }
   renderSuggestion(match, el) {
     const { item } = match;
-    el.createEl("div", { text: item.bookmark.name, cls: "lp-qo-name" });
-    if (item.folderPath)
-      el.createEl("div", { text: item.folderPath, cls: "lp-qo-meta" });
+    if (item.type === "header") {
+      el.createEl("div", { text: item.label, cls: "lp-qo-header" });
+      return;
+    }
+    el.createEl("div", { text: item.entry.bookmark.name, cls: "lp-qo-name" });
+    if (item.showPath && item.entry.folderPath) {
+      el.createEl("div", { text: item.entry.folderPath, cls: "lp-qo-meta" });
+    }
   }
-  onChooseItem(entry) {
-    this.host.openBookmarkUrl(entry.bookmark.url);
-    this.host.recordRecentBookmark(entry.bookmark.url);
+  onChooseItem(item) {
+    if (item.type === "header")
+      return;
+    this.host.openBookmarkUrl(item.entry.bookmark.url);
+    this.host.recordRecentBookmark(item.entry.bookmark.url);
   }
 };
 
