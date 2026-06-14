@@ -338,6 +338,7 @@ var en_default = {
   "setup.cancel.reconfigure": "Cancel",
   "quickOpen.placeholder": "Open bookmark\u2026",
   "quickOpen.sectionRecent": "Recent",
+  "quickOpen.sectionBookmarks": "Bookmarks",
   "notice.invalidUrl": "Launchpad: URL contains invalid characters and was not opened.",
   "notice.invalidVaultPath": "Launchpad: invalid vault path encoding.",
   "notice.folderNotFound": "Launchpad: folder not found \u2014 {path}",
@@ -413,6 +414,7 @@ var de_default = {
   "setup.cancel.reconfigure": "Abbrechen",
   "quickOpen.placeholder": "Lesezeichen \xF6ffnen\u2026",
   "quickOpen.sectionRecent": "Zuletzt ge\xF6ffnet",
+  "quickOpen.sectionBookmarks": "Lesezeichen",
   "notice.invalidUrl": "Launchpad: URL enth\xE4lt ung\xFCltige Zeichen und wurde nicht ge\xF6ffnet.",
   "notice.invalidVaultPath": "Launchpad: ung\xFCltige Vault-Pfad-Kodierung.",
   "notice.folderNotFound": "Launchpad: Ordner nicht gefunden \u2014 {path}",
@@ -1206,7 +1208,7 @@ function flattenFolder(folder, prefix) {
     entries.push({ bookmark: bm, folderPath: prefix });
   }
   for (const sub of folder.subfolders) {
-    entries.push(...flattenFolder(sub, `${prefix} \u203A ${sub.name}`));
+    entries.push(...flattenFolder(sub, `${prefix} / ${sub.name}`));
   }
   return entries;
 }
@@ -1245,26 +1247,32 @@ var BookmarkQuickOpenModal = class extends import_obsidian8.FuzzySuggestModal {
   }
   buildCategorizedList() {
     const items = [];
-    const pushHeader = (label) => items.push({ item: { type: "header", label }, match: EMPTY_MATCH });
-    const pushBookmark = (entry, showPath) => items.push({ item: { type: "bookmark", entry, showPath }, match: EMPTY_MATCH });
+    const push = (item) => items.push({ item, match: EMPTY_MATCH });
     const recentEntries = this.recentUrls.map((url) => this.allEntries.find((e) => e.bookmark.url === url)).filter((e) => e !== void 0);
     if (recentEntries.length > 0) {
-      pushHeader(t("quickOpen.sectionRecent"));
-      for (const entry of recentEntries)
-        pushBookmark(entry, true);
+      push({ type: "header", label: t("quickOpen.sectionRecent") });
+      for (const entry of recentEntries) {
+        push({ type: "bookmark", entry, showPath: true });
+      }
+      push({ type: "separator" });
     }
+    push({ type: "header", label: t("quickOpen.sectionBookmarks") });
+    const pushFolderTree = (folder, parentLabel) => {
+      const label = parentLabel ? `${parentLabel} / ${folder.name}` : folder.name;
+      push({ type: "header", label });
+      for (const bm of folder.bookmarks) {
+        push({ type: "bookmark", entry: { bookmark: bm, folderPath: label }, showPath: false });
+      }
+      for (const sub of folder.subfolders) {
+        pushFolderTree(sub, label);
+      }
+    };
     for (const folder of this.store.folders) {
-      const folderEntries = flattenFolder(folder, folder.name);
-      if (folderEntries.length === 0)
-        continue;
-      pushHeader(folder.name);
-      for (const entry of folderEntries)
-        pushBookmark(entry, false);
+      pushFolderTree(folder, "");
     }
     if (this.store.uncategorized.length > 0) {
-      pushHeader(t("modal.folder.uncategorized"));
       for (const bm of this.store.uncategorized) {
-        pushBookmark({ bookmark: bm, folderPath: "" }, false);
+        push({ type: "bookmark", entry: { bookmark: bm, folderPath: "" }, showPath: false });
       }
     }
     return items;
@@ -1278,17 +1286,22 @@ var BookmarkQuickOpenModal = class extends import_obsidian8.FuzzySuggestModal {
   }
   renderSuggestion(match, el) {
     const { item } = match;
+    if (item.type === "separator") {
+      el.createEl("div", { cls: "lp-qo-separator" });
+      return;
+    }
     if (item.type === "header") {
       el.createEl("div", { text: item.label, cls: "lp-qo-header" });
       return;
     }
-    el.createEl("div", { text: item.entry.bookmark.name, cls: "lp-qo-name" });
+    const wrapper = el.createEl("div", { cls: "lp-qo-bookmark" });
+    wrapper.createEl("div", { text: item.entry.bookmark.name, cls: "lp-qo-name" });
     if (item.showPath && item.entry.folderPath) {
-      el.createEl("div", { text: item.entry.folderPath, cls: "lp-qo-meta" });
+      wrapper.createEl("div", { text: item.entry.folderPath, cls: "lp-qo-meta" });
     }
   }
   onChooseItem(item) {
-    if (item.type === "header")
+    if (item.type !== "bookmark")
       return;
     this.host.openBookmarkUrl(item.entry.bookmark.url);
     this.host.recordRecentBookmark(item.entry.bookmark.url);

@@ -579,8 +579,19 @@
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	color: var(--text-muted);
-	padding: 6px 4px 2px;
+	padding: 6px 0 2px;
 	pointer-events: none;
+}
+
+.lp-qo-separator {
+	height: 1px;
+	background: var(--background-modifier-border);
+	margin: 2px 0;
+	pointer-events: none;
+}
+
+.lp-qo-bookmark {
+	padding-left: 12px;
 }
 
 .lp-qo-name {

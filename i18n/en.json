@@ -65,6 +65,7 @@
   "setup.cancel.reconfigure": "Cancel",
   "quickOpen.placeholder": "Open bookmark…",
   "quickOpen.sectionRecent": "Recent",
+  "quickOpen.sectionBookmarks": "Bookmarks",
   "notice.invalidUrl": "Launchpad: URL contains invalid characters and was not opened.",
   "notice.invalidVaultPath": "Launchpad: invalid vault path encoding.",
   "notice.folderNotFound": "Launchpad: folder not found — {path}",

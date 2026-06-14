@@ -5,6 +5,7 @@ import { t } from "./i18n";
 
 type QuickOpenItem =
 	| { type: "header"; label: string }
+	| { type: "separator" }
 	| { type: "bookmark"; entry: BookmarkEntry; showPath: boolean };
 
 interface BookmarkEntry {
@@ -18,7 +19,7 @@ function flattenFolder(folder: BookmarkFolder, prefix: string): BookmarkEntry[] 
 		entries.push({ bookmark: bm, folderPath: prefix });
 	}
 	for (const sub of folder.subfolders) {
-		entries.push(...flattenFolder(sub, `${prefix} › ${sub.name}`));
+		entries.push(...flattenFolder(sub, `${prefix} / ${sub.name}`));
 	}
 	return entries;
 }
@@ -67,33 +68,42 @@ export class BookmarkQuickOpenModal extends FuzzySuggestModal<QuickOpenItem> {
 	private buildCategorizedList(): FuzzyMatch<QuickOpenItem>[] {
 		const items: FuzzyMatch<QuickOpenItem>[] = [];
 
-		const pushHeader = (label: string) =>
-			items.push({ item: { type: "header", label }, match: EMPTY_MATCH });
-		const pushBookmark = (entry: BookmarkEntry, showPath: boolean) =>
-			items.push({ item: { type: "bookmark", entry, showPath }, match: EMPTY_MATCH });
+		const push = (item: QuickOpenItem) =>
+			items.push({ item, match: EMPTY_MATCH });
 
-		// Recent section — show folder path so items have context out of their folder
+		// Recent section
 		const recentEntries = this.recentUrls
 			.map(url => this.allEntries.find(e => e.bookmark.url === url))
 			.filter((e): e is BookmarkEntry => e !== undefined);
 		if (recentEntries.length > 0) {
-			pushHeader(t("quickOpen.sectionRecent"));
-			for (const entry of recentEntries) pushBookmark(entry, true);
+			push({ type: "header", label: t("quickOpen.sectionRecent") });
+			for (const entry of recentEntries) {
+				push({ type: "bookmark", entry, showPath: true });
+			}
+			push({ type: "separator" });
 		}
 
-		// One section per folder — header already names the folder, so no path needed
+		// Bookmarks section
+		push({ type: "header", label: t("quickOpen.sectionBookmarks") });
+
+		const pushFolderTree = (folder: BookmarkFolder, parentLabel: string) => {
+			const label = parentLabel ? `${parentLabel} / ${folder.name}` : folder.name;
+			push({ type: "header", label });
+			for (const bm of folder.bookmarks) {
+				push({ type: "bookmark", entry: { bookmark: bm, folderPath: label }, showPath: false });
+			}
+			for (const sub of folder.subfolders) {
+				pushFolderTree(sub, label);
+			}
+		};
+
 		for (const folder of this.store.folders) {
-			const folderEntries = flattenFolder(folder, folder.name);
-			if (folderEntries.length === 0) continue;
-			pushHeader(folder.name);
-			for (const entry of folderEntries) pushBookmark(entry, false);
+			pushFolderTree(folder, "");
 		}
 
-		// Uncategorized section
 		if (this.store.uncategorized.length > 0) {
-			pushHeader(t("modal.folder.uncategorized"));
 			for (const bm of this.store.uncategorized) {
-				pushBookmark({ bookmark: bm, folderPath: "" }, false);
+				push({ type: "bookmark", entry: { bookmark: bm, folderPath: "" }, showPath: false });
 			}
 		}
 
@@ -108,18 +118,23 @@ export class BookmarkQuickOpenModal extends FuzzySuggestModal<QuickOpenItem> {
 
 	renderSuggestion(match: FuzzyMatch<QuickOpenItem>, el: HTMLElement): void {
 		const { item } = match;
+		if (item.type === "separator") {
+			el.createEl("div", { cls: "lp-qo-separator" });
+			return;
+		}
 		if (item.type === "header") {
 			el.createEl("div", { text: item.label, cls: "lp-qo-header" });
 			return;
 		}
-		el.createEl("div", { text: item.entry.bookmark.name, cls: "lp-qo-name" });
+		const wrapper = el.createEl("div", { cls: "lp-qo-bookmark" });
+		wrapper.createEl("div", { text: item.entry.bookmark.name, cls: "lp-qo-name" });
 		if (item.showPath && item.entry.folderPath) {
-			el.createEl("div", { text: item.entry.folderPath, cls: "lp-qo-meta" });
+			wrapper.createEl("div", { text: item.entry.folderPath, cls: "lp-qo-meta" });
 		}
 	}
 
 	onChooseItem(item: QuickOpenItem): void {
-		if (item.type === "header") return;
+		if (item.type !== "bookmark") return;
 		this.host.openBookmarkUrl(item.entry.bookmark.url);
 		this.host.recordRecentBookmark(item.entry.bookmark.url);
 	}
